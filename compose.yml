@@ -28,7 +28,7 @@ services:
     depends_on:
       - dhcphelper
     # Set a custom hostname
-    hostname: haas
+    hostname: vertex
     build:
       network: host
       dockerfile_inline: |
