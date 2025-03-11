@@ -23,14 +23,14 @@ All you have to do to set a node up is copy and clone this repo, edit some varia
 One of the variables you'll set in `env.sh` will be `CLS_TYPE_NODE`, which is the type of node you're setting up. The options are:
 
 - **Hub**: A WireGuard server through which peers (Spokes) can route traffic. It just listens for incoming connections.
-- **Spoke**: A WireGuard client that connects, and can route traffic, to a Hub or HAAS.
-- **HAAS**: A special Hub that routes traffic to a special Spoke, a SAAH.
-- **SAAH**: A WireGuard client through which a HAAS routes traffic. It initiates the connection to a HAAS.
+- **Spoke**: A WireGuard client that connects, and can route traffic, to a Hub or HaaS.
+- **HaaS**: A special Hub that routes traffic to a special Spoke, a SaaH.
+- **SaaH**: A WireGuard client through which a HaaS routes traffic. It initiates the connection to a HaaS.
 
-A SAAH-HAAS[-Spoke] topology may be useful when you can't forward the WireGuard port at the location you'd like to have a Hub, but can where you'd otherwise have a stationary, always-on Spoke.
+A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard port at the location you'd like to have a Hub, but can where you'd otherwise have a stationary, always-on Spoke.
 
 > [!NOTE]
-> While a Spoke can route traffic to a Hub or HAAS, a HAAS can only route traffic to a SAAH.
+> While a Spoke can route traffic to a Hub or HaaS, a HaaS can only route traffic to a SaaH.
 
 ### Configuration
 
@@ -43,10 +43,10 @@ The files to edit are:
 
 Keep in mind that:
 
-- The netplan files may be different from each other, for example, if you want a Spoke or HAAS to act as an AP only when the VPN is up. Otherwise, they can be the same.
+- The netplan files may be different from each other, for example, if you want a Spoke or HaaS to act as an AP only when the VPN is up. Otherwise, they can be the same.
 - Unbound connects to Cloudflare's servers using DoT by default, but you can uncomment its volume in `compose.yml` to use it as a recursive resolver.
 - To configure Pi-hole more extensively, such as by enabling DHCP, see the [Pi-hole documentation](https://github.com/pi-hole/docker-pi-hole/tree/2024.07.0?tab=readme-ov-file#environment-variables).
-- The hooks may be useful, for example, if you'd like to coordinate with an external, outbound VPN on a Hub or SAAH. All arguments given to `start.sh`and `stop.sh` are passed to their respective hooks.
+- The hooks may be useful, for example, if you'd like to coordinate with an external, outbound VPN on a Hub or SaaH. All arguments given to `start.sh`and `stop.sh` are passed to their respective hooks.
 
 > [!WARNING]
 > The WireGuard service in the Compose file must be configured whether or not you'll use Docker ([docs](https://docs.linuxserver.io/images/docker-wireguard)).
@@ -63,14 +63,14 @@ sudo bash init.sh
 sudo bash start.sh
 ```
 
-3. On a Hub or HAAS, add a Spoke or SAAH peer.
+3. On a Hub or HaaS, add a Spoke or SaaH peer.
 
-Set a Hub or HAAS up first, so you can generate the necessary peer configuration for a Spoke or SAAH. Drop that configuration in the Spoke's or SAAH's `wireguard/config/wg_confs` directory as part of its Step 2.
+Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH. Drop that configuration in the Spoke's or SaaH's `wireguard/config/wg_confs` directory as part of its Step 2.
 
-To finish adding the SAAH peer to a HAAS, run `add.sh` (as described below) for it, after step 3, with `-a` to correctly set the peer's AllowedIPs. Then add an `SERVER_ALLOWEDIPS_PEER_[SAAH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` minus the peer's IP and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
+To finish adding the SaaH peer to a HaaS, run `add.sh` (as described below) for it, after step 3, with `-a` to correctly set the peer's AllowedIPs. Then add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` minus the peer's IP and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
 
 > [!IMPORTANT]
-> Remember to forward a port to your Hub or SAAH, which listens on 51820 by default. Use 443 on your router to bypass some basic firewall filters.
+> Remember to forward a port to your Hub or SaaH, which listens on 51820 by default. Use 443 on your router to bypass some basic firewall filters.
 
 ### Maintenance
 

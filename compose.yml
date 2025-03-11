@@ -85,7 +85,7 @@ services:
       - PGID=1000
       - TZ=US/Eastern
       - LOG_CONFS=true
-      # Delete or leave blank the variables under this line on a Spoke or SAAH, unless you want to use it in server mode as well
+      # Delete or leave blank the variables under this line on a Spoke or SaaH, unless you want to use it in server mode as well
       - SERVERURL=
       - SERVERPORT=
       - PEERS=
