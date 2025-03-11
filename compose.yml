@@ -1,0 +1,104 @@
+services:
+
+  unbound:
+    image: mvance/unbound:latest
+    restart: unless-stopped
+    # Uncomment the following lines to use this as a recursive resolver
+    #volumes:
+    #  - ./unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro
+    expose:
+      - 53
+      - 53/udp
+    networks:
+      closure:
+        ipv4_address: 10.5.0.2
+
+  dhcphelper:
+    restart: unless-stopped
+    container_name: dhcphelper
+    network_mode: host
+    image: homeall/dhcphelper:latest
+    environment:
+      IP: '10.5.0.3'
+      TZ: 'US/Eastern'
+    cap_add:
+      - NET_ADMIN
+
+  pihole:
+    depends_on:
+      - dhcphelper
+    # Set a custom hostname
+    hostname: haas
+    build:
+      network: host
+      dockerfile_inline: |
+        FROM ghcr.io/arevindh/pihole-speedtest:latest
+        RUN apt-get install -y php-cli php-sqlite3 php-intl php-curl wget || { apt-get update && apt-get install -y php-cli php-sqlite3 php-intl php-curl wget; }
+        RUN curl -sSLNZ https://raw.githubusercontent.com/jacklul/pihole-updatelists/master/install.sh | sudo bash -s docker
+    container_name: pihole
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+      - 80:80/tcp
+    networks:
+      closure:
+        ipv4_address: 10.5.0.3
+    environment:
+      - TZ=US/Eastern
+      - WEBPASSWORD=passwd
+      - FTLCONF_LOCAL_IPV4=0.0.0.0
+      - PIHOLE_DNS_=unbound
+      - PIHOLE_DOMAIN=internal
+      - WEBUIBOXEDLAYOUT=traditional
+      - QUERY_LOGGING=false
+      - WEBTHEME=lcars
+      - DNSMASQ_LISTENING=all
+      - FTLCONF_SOCKET_LISTENING=all
+      - FTLCONF_SOCKET_PIHOLE_PTR=HOSTNAME
+      - SKIPGRAVITYONBOOT=true
+      - COMMENT="Managed by pihole-updatelists"
+      - ADLISTS_URL="https://v.firebog.net/hosts/lists.php?type=nocross"
+      - WHITELIST_URL="https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt"
+      - REGEX_BLACKLIST_URL="https://raw.githubusercontent.com/mmotti/pihole-regex/master/regex.list"
+      - PERSISTENT_GROUP=false
+
+  wireguard:
+    profiles: ["prod"]
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - ./wireguard/config:/config
+      - /lib/modules:/lib/modules
+    network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=US/Eastern
+      - LOG_CONFS=true
+      # Delete or leave blank the variables under this line on a Spoke or SAAH, unless you want to use it in server mode as well
+      - SERVERURL=
+      - SERVERPORT=
+      - PEERS=
+      # If running Pi-hole or another resolver on this or another node, change DNS to it
+      - PEERDNS=1.1.1.1,1.0.0.1
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=0.0.0.0/1,128.0.0.0/1,::/1,8000::/1
+
+
+networks:
+  closure:
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/24
