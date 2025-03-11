@@ -8,7 +8,7 @@ source "lib.sh"
 sudo sed -i 's/#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
 sudo systemctl restart systemd-resolved
 sudo cp -f /run/systemd/resolve/resolv.conf /etc/resolv.conf
-grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf || echo -e "nameserver 1.1.1.1\n$(cat /etc/resolv.conf)" | sudo tee /etc/resolv.conf.bak >/dev/null
+grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf.bak || echo -e "nameserver 1.1.1.1\n$(cat /etc/resolv.conf)" | sudo tee /etc/resolv.conf.bak >/dev/null
 sudo cp -f /etc/resolv.conf /etc/resolv.conf.orig
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
