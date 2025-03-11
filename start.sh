@@ -94,7 +94,7 @@ if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]] && [ -n "$CLS_EXTERN_IFACE" ]; then
 fi
 
 ! sudo docker ps | grep -q pihole || sudo docker compose restart unbound
-sudo docker ps | grep -qE "pihole.*Up" && sudo docker ps | grep -qE "unbound.*Up" && echo -e "nameserver 127.0.0.1\nsearch $CLS_DOMAIN" | sudo tee /etc/resolv.conf.bak || :
+sudo docker ps | grep -qE "pihole.*Up" && sudo docker ps | grep -qE "unbound.*Up" && echo -e "nameserver 127.0.0.1\nsearch $CLS_DOMAIN" | sudo tee /etc/resolv.conf.bak >/dev/null || :
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
 if sudo docker ps | grep -qE "pihole.*Up" && ! sudo docker exec pihole sh -c "if [ -e /etc/dnsmasq.d/99-dns.conf ]; then echo 0; else echo 1; fi"; then
@@ -108,7 +108,7 @@ if sudo docker ps | grep -qE "pihole.*Up" && ! sudo docker exec pihole sh -c "if
   sudo docker exec pihole sed -i '/^.*_.*=.*$/!d' /etc/pihole/versions # pihole-updatelists seems to break this
 
   # proxy for dhcphelper
-  sudo docker exec pihole bash -c "echo 'dhcp-option=option:dns-server,$CLS_LOCAL_IP' | tee /etc/dnsmasq.d/99-dns.conf" || :
+  sudo docker exec pihole bash -c "echo 'dhcp-option=option:dns-server,$CLS_LOCAL_IP' | tee /etc/dnsmasq.d/99-dns.conf >/dev/null" || :
   sudo docker compose restart --no-deps pihole
 fi
 

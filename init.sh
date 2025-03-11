@@ -8,7 +8,7 @@ source "lib.sh"
 sudo sed -i 's/#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
 sudo systemctl restart systemd-resolved
 sudo cp -f /run/systemd/resolve/resolv.conf /etc/resolv.conf
-grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf || echo -e "nameserver 1.1.1.1\n$(cat /etc/resolv.conf)" | sudo tee /etc/resolv.conf.bak
+grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf || echo -e "nameserver 1.1.1.1\n$(cat /etc/resolv.conf)" | sudo tee /etc/resolv.conf.bak >/dev/null
 sudo cp -f /etc/resolv.conf /etc/resolv.conf.orig
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
@@ -51,17 +51,17 @@ sudo apt autoremove -y
 echo "[connection]
 # Values are 0 (use default), 1 (ignore/don't touch), 2 (disable) or 3 (enable).
 wifi.powersave = 2
-" | sudo tee /etc/NetworkManager/conf.d/wifi-powersave.conf
+" | sudo tee /etc/NetworkManager/conf.d/wifi-powersave.conf >/dev/null
 sudo cp -f /etc/NetworkManager/conf.d/wifi-powersave.conf /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
 
 if grep -q Raspberry /proc/device-tree/model; then
 
   # wifi 2.4GHz performance
-  grep -q dtoverlay=disable-bt /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt
+  grep -q dtoverlay=disable-bt /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt >/dev/null
 
   if [ ! -f /etc/modprobe.d/brcmfmac.conf ]; then
     # wifi chip bug: https://github.com/raspberrypi/linux/issues/6049#issuecomment-2642566713
-    echo "options brcmfmac roamoff=1 feature_disable=0x202000" | sudo tee /etc/modprobe.d/brcmfmac.conf
+    echo "options brcmfmac roamoff=1 feature_disable=0x202000" | sudo tee /etc/modprobe.d/brcmfmac.conf >/dev/null
     sudo systemctl restart systemd-modules-load
   fi
 fi
@@ -69,7 +69,7 @@ fi
 # Configure bridge
 sudo mkdir -p /etc/cloud/cloud.cfg.d
 sudo touch /etc/cloud/cloud-init.disabled
-echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
 sudo rm -f /etc/netplan/50-cloud-init.yaml
 set_netplan open
 sudo sed -i "s/uri=.*$/uri=/" /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf
@@ -113,9 +113,9 @@ net.ipv6.conf.all.disable_ipv6=0
 net.ipv6.conf.all.proxy_ndp=1
 "
 while IFS= read -r line; do
-  grep -qP "^.*$(echo "$line" | cut -d= -f1) ?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^.*$(echo "$line" | cut -d= -f1) \?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf
+  grep -qP "^.*$(echo "$line" | cut -d= -f1) ?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^.*$(echo "$line" | cut -d= -f1) \?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf >/dev/null
 done <<<"$sysctl"
-grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf
+grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf >/dev/null
 sudo sysctl -p
 
 # Fix IP in Docker
@@ -124,7 +124,7 @@ echo '{
   "ipv6": true,
   "fixed-cidr-v6": "2001:db8:1::/64",
   "userland-proxy": false
-}' | sudo tee /etc/docker/daemon.json
+}' | sudo tee /etc/docker/daemon.json >/dev/null
 
 (crontab -l 2>/dev/null | grep -Fv "$CLS_DYN_DNS") | crontab -
 
@@ -157,17 +157,17 @@ fi
 if grep -q gdm3 /etc/X11/default-display-manager; then
   sudo sed -i "/AutomaticLogin\(Enable\)*=.*/d; /\[daemon\]/a AutomaticLoginEnable=true\nAutomaticLogin=$CLS_ACTIVE_USER" /etc/gdm3/custom.conf
 elif grep -q lightdm /etc/X11/default-display-manager; then
-  echo -e "[Seat:*]\nautologin-guest=false\nautologin-user=$CLS_ACTIVE_USER\nautologin-user-timeout=0\n" | sudo tee /etc/lightdm/lightdm.conf
+  echo -e "[Seat:*]\nautologin-guest=false\nautologin-user=$CLS_ACTIVE_USER\nautologin-user-timeout=0\n" | sudo tee /etc/lightdm/lightdm.conf >/dev/null
 elif grep -q sddm /etc/X11/default-display-manager; then
   sed -i '/\[Autologin\]/,/^$/d' /etc/sddm.conf
-  echo -e "[Autologin]\nUser=$CLS_ACTIVE_USER\n\n" | sudo tee -a /etc/sddm.conf
+  echo -e "[Autologin]\nUser=$CLS_ACTIVE_USER\n\n" | sudo tee -a /etc/sddm.conf >/dev/null
 else
   mkdir -p /etc/systemd/system/getty@tty1.service.d
   echo "[Service]
 ExecStart=
 ExecStart=-/sbin/agetty --noissue --autologin $CLS_ACTIVE_USER %I $TERM
 Type=idle
-" | sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf
+" | sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable getty@tty1
 fi
@@ -189,8 +189,8 @@ Name=Kickstart
 Exec=sudo $active_path $CLS_STARTUP_ARGS
 Icon=system-run
 X-GNOME-Autostart-enabled=true
-" | sudo tee /home/"$CLS_ACTIVE_USER"/.config/autostart/kickstart.desktop
+" | sudo tee /home/"$CLS_ACTIVE_USER"/.config/autostart/kickstart.desktop >/dev/null
 else
-  grep -q "sudo $active_path $CLS_STARTUP_ARGS" /home/"$CLS_ACTIVE_USER"/.profile || echo "[ -n $SSH_CLIENT ] || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile
+  grep -q "sudo $active_path $CLS_STARTUP_ARGS" /home/"$CLS_ACTIVE_USER"/.profile || echo "[ -n $SSH_CLIENT ] || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
 popd || exit 1
