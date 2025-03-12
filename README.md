@@ -8,7 +8,7 @@
 
 ---
 
-Set up a fresh Ubuntu install as a Hub, Spoke, or hybrid of both! Ubuntu can be installed on a removable medium, or should already have openssh-server or git configured, so that there's a means of getting these files onto it.
+Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both! Ubuntu can be installed on a removable medium, or should already have openssh-server or git configured, so that there's a means of getting these files onto it.
 
 You can run the entire stack as Docker services or just WireGuard on the host. If you run it with Docker, you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists).
 
@@ -22,7 +22,7 @@ All you have to do to set a node up is copy and clone this repo, edit some varia
 
 One of the variables you'll set in `env.sh` will be `CLS_TYPE_NODE`, which is the type of node you're setting up. The options are:
 
-- **Hub**: A WireGuard server through which peers (Spokes) can route traffic. It just listens for incoming connections.
+- **Hub**: A WireGuard server through which peers can route traffic. It just listens for incoming connections.
 - **Spoke**: A WireGuard client that connects, and can route traffic, to a Hub or HaaS.
 - **HaaS**: A special Hub that routes traffic to a special Spoke, a SaaH.
 - **SaaH**: A WireGuard client through which a HaaS routes traffic. It initiates the connection to a HaaS.
@@ -70,7 +70,7 @@ Set a Hub or HaaS up first, so you can generate the necessary peer configuration
 To finish adding the SaaH peer to a HaaS, run `add.sh` (as described below) for it, after step 3, with `-a` to correctly set the peer's AllowedIPs. Then add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` minus the peer's IP and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
 
 > [!IMPORTANT]
-> Remember to forward a port to your Hub or SaaH, which listens on 51820 by default. Use 443 on your router to bypass some basic firewall filters.
+> Remember to forward a port to your Hub or HaaS, which listens on 51820 by default. Use 443 on your router to bypass some basic firewall filters.
 
 ### Maintenance
 
