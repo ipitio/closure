@@ -1,6 +1,6 @@
 <div align="center">
 
-# Cl<img src=closure.png height="20" width="20">sure
+# Cl<img src=closure.png height="19" width="19">sure
 
 <strong>Complex? Simplicial.</strong>
 
