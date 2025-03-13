@@ -57,6 +57,7 @@ get_local_ip() {
 
 CLS_TYPE_NODE=$(echo "$CLS_TYPE_NODE" | tr '[:upper:]' '[:lower:]')
 CLS_LOCAL_IP=$(get_local_ip)
+CLS_WG_SERVER=$(echo "$INTERNAL_SUBNET" | awk 'BEGIN{FS=OFS="."} NF--').1
 
 set_netplan() {
     sudo cp -f netplan/"${1:-open}".yml /etc/netplan/99_config.yaml

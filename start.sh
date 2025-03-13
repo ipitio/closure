@@ -40,15 +40,21 @@ sudo bash hooks/pre-up.sh "$@"
 
   while ip a show "$CLS_INTERN_IFACE" | grep -q UP; do
     if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && [[ "$SERVERURL" =~ \. ]] && ! [[ "$SERVERURL" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      core_ip_now=$(dig +short "$SERVERURL") && [ -n "$core_ip_now" ] && [ "$core_ip_now" != "$core_ip" ] && exec sudo bash restart.sh "$CLS_ACTIVE_USER" "$1" || :
-      sudo wg | grep -q handshake && ! nmap -sn "$(cut -d. -f1-3 <<<"$INTERNAL_SUBNET").*" | grep -q 'Host is up' && exec sudo bash restart.sh "$CLS_ACTIVE_USER" "$1" || :
+      if [ -z "$core_ip" ]; then
+        core_ip=$(dig +short "$SERVERURL")
+      else
+        core_ip_now=$(dig +short "$SERVERURL")
+        [ -n "$core_ip_now" ] && [ "$core_ip_now" != "$core_ip" ] && exec sudo bash restart.sh "$@" || :
+      fi
+
+      sudo wg | grep -q handshake && ! ping -c3 "$CLS_WG_SERVER" >/dev/null && exec sudo bash restart.sh "$@" || :
     fi
 
     route_wg
     sleep 5
   done
 
-  exec sudo bash restart.sh "$CLS_ACTIVE_USER" "$1"
+  exec sudo bash restart.sh "$@"
 ) &
 
 if $CLS_DOCKER; then
