@@ -37,7 +37,11 @@ sudo bash hooks/pre-up.sh "$@"
 
     if should_check_server_ip; then
       core_ip_now=$(dig +short "$SERVERURL")
-      is_ip "$core_ip_now" && is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ] && ! ping -c5 "$CLS_WG_SERVER" && break || :
+
+      # Only ping and break if either DNS failed or IP changed
+      if ! is_ip "$core_ip_now" || (is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ]); then
+        ping -c5 "$CLS_WG_SERVER" || break
+      fi
     fi
 
     sleep 5

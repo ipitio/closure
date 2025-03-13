@@ -78,7 +78,7 @@ is_ip() {
 }
 
 should_check_server_ip() {
-    if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && is_ip "$SERVERURL"; then
+    if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && ! is_ip "$SERVERURL"; then
         is_ip "$CLS_WG_SERVER_IP" || CLS_WG_SERVER_IP=$(dig +short "$SERVERURL")
         return 0
     fi
