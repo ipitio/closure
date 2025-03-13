@@ -31,3 +31,6 @@ CLS_DOCKER=false
 
 # Should be the same as your network's search domain or REV_SERVER_DOMAIN in the Pi-hole service
 CLS_DOMAIN="internal"
+
+# Expected network speed as described here: https://man7.org/linux/man-pages/man8/tc-cake.8.html
+CLS_BANDWIDTH=""
