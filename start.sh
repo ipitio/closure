@@ -19,38 +19,27 @@ done
 sudo bash hooks/pre-up.sh "$@"
 
 (
+  should_check_server_ip
   until ip a show "$CLS_INTERN_IFACE" | grep -q UP; do sleep 1; done
-  (
-    while ip a show "$CLS_INTERN_IFACE" | grep -q UP; do
-      if [ -n "$CLS_EXTERN_IFACE" ] && [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]] && ip a show "$CLS_EXTERN_IFACE" | grep -q UP; then
-        until sudo wg | grep -q endpoint; do sleep 1; done
-
-        while sudo wg | grep -q endpoint; do
-          sudo wg | grep -oE 'endpoint: [^:]+' | grep -oE '\S+$' | while read -r endpoint; do
-            route -n | grep -q "$endpoint" || sudo route add -net "$endpoint" netmask 255.255.255.255 gw "$(ip r | grep -oP 'default via \K\S+')" &>/dev/null
-          done
-          sleep 5
-        done
-      fi
-      sleep 5
-    done
-  ) &
-
-  core_ip=$(dig +short "$SERVERURL")
 
   while ip a show "$CLS_INTERN_IFACE" | grep -q UP; do
-    if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && [[ "$SERVERURL" =~ \. ]] && ! [[ "$SERVERURL" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      if [ -z "$core_ip" ]; then
-        core_ip=$(dig +short "$SERVERURL")
-      else
-        core_ip_now=$(dig +short "$SERVERURL")
-        [ -n "$core_ip_now" ] && [ "$core_ip_now" != "$core_ip" ] && exec sudo bash restart.sh "$@" || :
-      fi
-
-      sudo wg | grep -q handshake && ! ping -c3 "$CLS_WG_SERVER" >/dev/null && exec sudo bash restart.sh "$@" || :
+    if ! ip rule show table 7 | grep -qP '0x55' || ! ip route show table 7 | grep -q default; then
+      ip route show table 7 | grep -q default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IP" table 7 &>/dev/null
+      ip rule show table 7 | grep -qP '0x55' || sudo ip rule add fwmark 0x55 table 7 &>/dev/null
+      sudo ip route flush cache
     fi
 
-    route_wg
+    if [ -n "$CLS_EXTERN_IFACE" ] && [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]] && ip a show "$CLS_EXTERN_IFACE" | grep -q UP; then
+      sudo wg | grep -oE 'endpoint: [^:]+' | grep -oE '\S+$' | while read -r endpoint; do
+        route -n | grep -q "$endpoint" || sudo route add -net "$endpoint" netmask 255.255.255.255 gw "$(ip r | grep -oP 'default via \K\S+')" &>/dev/null
+      done
+    fi
+
+    if should_check_server_ip; then
+      core_ip_now=$(dig +short "$SERVERURL")
+      is_ip "$core_ip_now" && is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ] && ! ping -c5 "$CLS_WG_SERVER" && break || :
+    fi
+
     sleep 5
   done
 

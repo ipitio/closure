@@ -58,6 +58,7 @@ get_local_ip() {
 CLS_TYPE_NODE=$(echo "$CLS_TYPE_NODE" | tr '[:upper:]' '[:lower:]')
 CLS_LOCAL_IP=$(get_local_ip)
 CLS_WG_SERVER=$(echo "$INTERNAL_SUBNET" | awk 'BEGIN{FS=OFS="."} NF--').1
+CLS_WG_SERVER_IP=""
 
 set_netplan() {
     sudo cp -f netplan/"${1:-open}".yml /etc/netplan/99_config.yaml
@@ -73,12 +74,17 @@ set_netplan() {
     sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$CLS_LOCAL_IP/" compose.yml
 }
 
-route_wg() {
-    if ! ip rule show table 7 | grep -qP '0x55' || ! ip route show table 7 | grep default; then
-        ip route show table 7 | grep default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IP" table 7 &>/dev/null
-        ip rule show table 7 | grep -qP '0x55' || sudo ip rule add fwmark 0x55 table 7 &>/dev/null
-        sudo ip route flush cache
+is_ip() {
+    [[ "$1" =~ ^[0-9.]+$ || "$1" =~ ^[0-9a-fA-F:]+$ ]]
+}
+
+should_check_server_ip() {
+    if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && is_ip "$SERVERURL"; then
+        is_ip "$CLS_WG_SERVER_IP" || CLS_WG_SERVER_IP=$(dig +short "$SERVERURL")
+        return 0
     fi
+
+    return 1
 }
 
 set +a
