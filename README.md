@@ -16,7 +16,7 @@ If you have an Arm machine, it unfortunately may not be able to run the entire s
 
 ## Getting Started
 
-All you have to do to set a node up is copy and clone this repo, edit some variables, move the project directory to the target filesystem -- physically, over SFTP, with git, or however you prefer -- and run the kickstart script.
+All you have to do to set a node up is fork and/or clone this repo, edit some variables, move the project directory to the target filesystem however you fancy, and run the kickstart script.
 
 ### Definitions
 
@@ -65,7 +65,7 @@ sudo bash start.sh
 
 3. On a Hub or HaaS, add a Spoke or SaaH peer.
 
-Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH. Drop that configuration in the Spoke's or SaaH's `wireguard/config/wg_confs` directory as part of its Step 2.
+Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH. Drop that configuration in the Spoke's or SaaH's `wireguard/config/wg_confs` directory as part of its Step 1
 
 To finish adding the SaaH peer to a HaaS, run `add.sh` (as described below) for it, after step 3, with `-a` to correctly set the peer's AllowedIPs. Then add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` minus the peer's IP and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
 
