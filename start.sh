@@ -40,7 +40,7 @@ sudo bash hooks/pre-up.sh "$@"
 
       # Only ping and break if either DNS failed or IP changed
       if ! is_ip "$core_ip_now" || (is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ]); then
-        ping -c5 "$CLS_WG_SERVER" || break
+        ping -c5 "$CLS_WG_SERVER" >/dev/null || break
       fi
     fi
 
