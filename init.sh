@@ -12,42 +12,16 @@ grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf.bak || echo -e "nameserver 1.
 sudo cp -f /etc/resolv.conf /etc/resolv.conf.orig
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
-apt_install() {
-  if ! dpkg -l "$@" >/dev/null 2>&1; then
-    sudo apt-get update
-    sudo apt-get install -y "$@"
-  fi
-}
+# Configure nm
+sudo mkdir -p /etc/cloud/cloud.cfg.d
+sudo touch /etc/cloud/cloud-init.disabled
+echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
+sudo rm -f /etc/netplan/50-cloud-init.yaml
+set_netplan open
+sudo sed -i "s/uri=.*$/uri=/" /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf
+sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
 
-# install deps, installed manually: openssh-server
-if ! dpkg -l apt-fast >/dev/null 2>&1; then
-  sudo add-apt-repository -y ppa:apt-fast/stable
-  sudo apt-get update
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y apt-fast
-fi
-
-if ! dpkg -l docker-ce >/dev/null 2>&1; then
-  # Add Docker's official GPG key:
-  apt_install ca-certificates curl
-  sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-  # Add the repository to Apt sources:
-  # shellcheck disable=SC1091
-  echo \
-    "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
-    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-fi
-
-[ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudo mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
-sudo systemctl disable --now whoopsie.path &>/dev/null
-sudo systemctl mask whoopsie.path &>/dev/null
-sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
-apt_install byobu docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin iperf3 iw net-tools nmap qrencode snapd traceroute tmux wireguard wmctrl
-sudo apt autoremove -y
-
+# wifi performance
 echo "[connection]
 # Values are 0 (use default), 1 (ignore/don't touch), 2 (disable) or 3 (enable).
 wifi.powersave = 2
@@ -66,16 +40,7 @@ if grep -q Raspberry /proc/device-tree/model; then
   fi
 fi
 
-# Configure bridge
-sudo mkdir -p /etc/cloud/cloud.cfg.d
-sudo touch /etc/cloud/cloud-init.disabled
-echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
-sudo rm -f /etc/netplan/50-cloud-init.yaml
-set_netplan open
-sudo sed -i "s/uri=.*$/uri=/" /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf
-sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
-
-# Enable IP forwarding
+# general performance
 # https://cromwell-intl.com/open-source/performance-tuning/tcp.html
 sysctl="
 fs.file-max=51200
@@ -120,35 +85,6 @@ done <<<"$sysctl"
 grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf >/dev/null
 sudo sysctl -p
 
-# Fix IP in Docker
-sudo mkdir -p /etc/docker
-echo '{
-  "ipv6": true,
-  "fixed-cidr-v6": "2001:db8:1::/64",
-  "userland-proxy": false
-}' | sudo tee /etc/docker/daemon.json >/dev/null
-
-(crontab -l 2>/dev/null | grep -Fv "$CLS_DYN_DNS") | crontab -
-
-if [ -n "$CLS_DYN_DNS" ]; then
-  if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
-    if [ -z "$CLS_EXTERN_IFACE" ] && ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
-      (
-        crontab -l 2>/dev/null
-        echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/wget --no-check-certificate -O - $CLS_DYN_DNS >> /tmp/ddns.log 2>&1 &"
-      ) | crontab -
-    fi
-
-    ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-  else
-    ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-  fi
-fi
-
-if $CLS_DOCKER; then
-  sudo docker compose build
-fi
-
 # Verbose boot
 if grep -q "quiet splash" /etc/default/grub; then
   sudo sed -i 's/quiet splash//g' /etc/default/grub
@@ -170,8 +106,8 @@ ExecStart=
 ExecStart=-/sbin/agetty --noissue --autologin $CLS_ACTIVE_USER %I $TERM
 Type=idle
 " | sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf >/dev/null
-sudo systemctl daemon-reload
-sudo systemctl enable getty@tty1
+  sudo systemctl daemon-reload
+  sudo systemctl enable getty@tty1
 fi
 
 # Autostart on login
@@ -195,4 +131,70 @@ X-GNOME-Autostart-enabled=true
 else
   grep -q "sudo $active_path $CLS_STARTUP_ARGS" /home/"$CLS_ACTIVE_USER"/.profile || echo "[ -n $SSH_CLIENT ] || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
+
+# Install deps, installed manually: openssh-server
+[ -z "$CLS_GATEWAY" ] || until ping -c1 "$CLS_GATEWAY" >/dev/null; do sleep 1; done
+
+apt_install() {
+  if ! dpkg -l "$@" >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y "$@"
+  fi
+}
+
+if ! dpkg -l apt-fast >/dev/null 2>&1; then
+  sudo add-apt-repository -y ppa:apt-fast/stable
+  sudo apt-get update
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y apt-fast
+fi
+
+if ! dpkg -l docker-ce >/dev/null 2>&1; then
+  apt_install ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+  # shellcheck disable=SC1091
+  echo \
+    "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
+    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+fi
+
+[ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudo mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
+sudo systemctl disable --now whoopsie.path &>/dev/null
+sudo systemctl mask whoopsie.path &>/dev/null
+sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
+apt_install byobu docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin iperf3 iw net-tools nmap qrencode snapd traceroute tmux wireguard wmctrl
+sudo apt autoremove -y
+
+# Prepare DDNS
+(crontab -l 2>/dev/null | grep -Fv "$CLS_DYN_DNS") | crontab -
+
+if [ -n "$CLS_DYN_DNS" ]; then
+  if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
+    if [ -z "$CLS_EXTERN_IFACE" ] && ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
+      (
+        crontab -l 2>/dev/null
+        echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/wget --no-check-certificate -O - $CLS_DYN_DNS >> /tmp/ddns.log 2>&1 &"
+      ) | crontab -
+    fi
+
+    ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
+  else
+    ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
+  fi
+fi
+
+# Prepare Docker
+if $CLS_DOCKER; then
+  sudo mkdir -p /etc/docker
+  echo '{
+    "ipv6": true,
+    "fixed-cidr-v6": "2001:db8:1::/64",
+    "userland-proxy": false
+  }' | sudo tee /etc/docker/daemon.json >/dev/null
+  sudo docker compose build
+fi
+
 popd || exit 1

@@ -45,6 +45,7 @@ wg() {
 }
 
 CLS_LOCAL_IFACE=""
+CLS_GATEWAY=""
 
 get_local_iface() {
     comm -12 <(ifconfig | grep ': flags=' | grep -vP '(SLAVE|POINTOPOINT)' | grep -oP '.*(?=:)' | sort -u) <(route -n | awk '{$1=""; print substr($0,2)}' | grep -P '^\d' | grep -v '^0\.0\.0\.0' | awk '{print $NF}' | sort -u)
@@ -54,6 +55,7 @@ get_local_ip() {
     CLS_LOCAL_IFACE=$(get_local_iface)
     [ -n "$CLS_LOCAL_IFACE" ] || return 1
     ip r | grep -q '^default via' || sudo ip r add default via "$(nmcli dev show "$CLS_LOCAL_IFACE" | grep -oP '((?<=GATEWAY:)[^-]*|/0.*?= [^,]+)' | grep -oE '[^ ]+$' | head -n1)" &>/dev/null
+    CLS_GATEWAY=$(ip r | grep -oP '^default via \K\S+')
     ip a show "$CLS_LOCAL_IFACE" | grep -oP 'inet \K\S+' | cut -d/ -f1
 }
 

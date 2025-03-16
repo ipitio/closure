@@ -44,6 +44,10 @@ sudo bash hooks/pre-up.sh "$@"
       fi
     fi
 
+    if [[ "$CLS_TYPE_NODE" =~ (hub|haas) ]] && [ -n "$CLS_DYN_DNS" ] && [ -n "$CLS_GATEWAY" ]; then
+      ping -c5 "$CLS_GATEWAY" >/dev/null || break
+    fi
+
     sleep 5
   done
 
