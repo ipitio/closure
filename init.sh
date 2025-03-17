@@ -133,7 +133,7 @@ else
 fi
 
 # Install deps, installed manually: openssh-server
-[ -z "$CLS_GATEWAY" ] || until ping -c1 "$CLS_GATEWAY" >/dev/null; do sleep 1; done
+[ -z "$CLS_GATEWAY" ] || until ping -c1 "$CLS_GATEWAY" >/dev/null; do :; done
 
 apt_install() {
   if ! dpkg -l "$@" >/dev/null 2>&1; then
