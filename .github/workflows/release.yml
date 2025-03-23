@@ -1,0 +1,36 @@
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build package
+        id: build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y equivs
+          sed -i "s,^Files:,Files:$(find . -type f | grep -oP '(?<=^\./).*' | grep -vP '^(\.|debian/)' | while read -r file; do echo -e " $file /opt/closure/$file"; done | grep -oP '.*(?=/)' | awk -v ORS='\\n' '1')," debian/control
+          equivs-build debian/control
+          echo "built=$?" >> "$GITHUB_OUTPUT"
+          tag=$(grep -oP '(?<=^Version: ).*' debian/control)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        if: ${{ steps.build.outputs.built == '0' }}
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "*.deb"
+          body: "Release v${{ steps.build.outputs.tag }}"
+          tag: "v${{ steps.build.outputs.tag }}"
+          commit: "master"
+          allowUpdates: true

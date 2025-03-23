@@ -2,6 +2,8 @@
 # shellcheck disable=SC1091,SC2015
 
 pushd "$(dirname "$(readlink -f "$0")")" || exit 1
+mv -n examples/* .
+rmdir examples
 source "lib.sh"
 
 # Free port 53 on Ubuntu for Pi-hole
@@ -42,46 +44,9 @@ fi
 
 # general performance
 # https://cromwell-intl.com/open-source/performance-tuning/tcp.html
-sysctl="
-fs.file-max=51200
-net.core.rmem_max=67108864
-net.core.wmem_max=67108864
-net.core.netdev_max_backlog=250000
-net.core.somaxconn=4096
-net.core.default_qdisc=fq
-net.ipv4.ip_forward=1
-net.ipv4.tcp_congestion_control=bbr
-net.ipv4.tcp_fastopen=3
-net.ipv4.tcp_syncookies=1
-net.ipv4.tcp_window_scaling=1
-net.ipv4.tcp_adv_win_scale=2
-net.ipv4.tcp_moderate_rcvbuf=1
-net.ipv4.tcp_tw_reuse=1
-net.ipv4.tcp_mtu_probing=1
-net.ipv4.tcp_fin_timeout=30
-net.ipv4.tcp_keepalive_time=1200
-net.ipv4.tcp_max_syn_backlog=8192
-net.ipv4.tcp_max_tw_buckets=5000
-net.ipv4.tcp_mem=25600 51200 102400
-net.ipv4.tcp_rmem=4096 87380 67108864
-net.ipv4.tcp_wmem=4096 65536 67108864
-net.ipv4.tcp_sack=1
-net.ipv4.tcp_dsack=1
-net.ipv4.tcp_fack=1
-net.ipv4.tcp_slow_start_after_idle=1
-net.ipv4.conf.all.src_valid_mark=1
-net.ipv4.conf.all.proxy_arp=1
-net.ipv4.conf.all.rp_filter=0
-net.ipv4.conf.default.rp_filter=0
-net.ipv6.conf.all.forwarding=1
-net.ipv6.conf.all.disable_ipv6=0
-net.ipv6.conf.all.proxy_ndp=1
-net.netfilter.nf_conntrack_max=262144
-net.netfilter.nf_conntrack_tcp_timeout_established=86400
-"
 while IFS= read -r line; do
   grep -qP "^#?.*$(echo "$line" | cut -d= -f1) ?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^#\?.*$(echo "$line" | cut -d= -f1) \?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf >/dev/null
-done <<<"$sysctl"
+done <sysctl.conf
 grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf >/dev/null
 sudo sysctl -p
 

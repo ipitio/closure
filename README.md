@@ -8,7 +8,7 @@
 
 ---
 
-Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both! Ubuntu can be installed on a removable medium, or should already have openssh-server or git configured, so that there's a means of getting these files onto it.
+Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
 
 You can run the entire stack as Docker services or just WireGuard on the host. If you run it with Docker, you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists).
 
@@ -16,7 +16,7 @@ If you have an Arm machine, it unfortunately may not be able to run the entire s
 
 ## Getting Started
 
-Just edit some variables and deploy!
+Just edit some variables and go!
 
 ### Definitions
 
@@ -34,7 +34,7 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 ### Configuration
 
-The files to edit are:
+Move everything in `examples/` out to the parent directory. The files to edit are:
 
 - `netplan/{open,closed}.yml`: network config when the VPN is down or up, respectively
 - `env.sh`: environment variables for the scripts
@@ -55,8 +55,8 @@ Keep in mind that:
 
 Set a node up in two or three steps:
 
-1. Move this directory to the target in any way you like, after modifying the files above.
-2. Spin everything up by running, from the directory:
+1. Move this directory to the target in any way you like. If you install the `deb` package provided in [Releases](https://github.com/ipitio/closure/releases), the directory will be in `/opt/closure`.
+2. Modify the files above and spin everything up by running, from the directory:
 
 ```{bash}
 sudo bash init.sh
@@ -65,9 +65,9 @@ sudo bash start.sh
 
 3. On a Hub or HaaS, add a Spoke or SaaH peer.
 
-Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH. Drop that configuration in the Spoke's or SaaH's `wireguard/config/wg_confs` directory as part of its Step 1.
+Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH. Drop that configuration in the Spoke's or SaaH's `wireguard/config/wg_confs` directory after its Step 1.
 
-To finish adding the SaaH peer to a HaaS, run `add.sh` (as described below) for it, after step 3, with `-a` to correctly set the peer's AllowedIPs. Then add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` minus the peer's IP and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
+To finish adding the SaaH peer to a HaaS, run `add.sh` (as described below) for it, after Step 3, with `-a` to correctly set the peer's AllowedIPs. Then add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` minus the peer's IP and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
 
 > [!IMPORTANT]
 > Remember to forward a port to your Hub or HaaS, which listens on 51820 by default. Use 443 on your router to bypass some basic firewall filters.
