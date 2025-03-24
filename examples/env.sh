@@ -5,7 +5,7 @@
 # User to automatically log in and run the scripts on boot
 CLS_ACTIVE_USER="ubuntu"
 
-# User under which to store the scripts
+# User to run the scripts as
 CLS_SCRIPT_USER="ubuntu"
 
 # Args to pass to the scripts on boot

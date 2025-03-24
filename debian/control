@@ -4,11 +4,13 @@ Homepage: https://github.com/ipitio/closure
 Standards-Version: 3.9.2
 
 Package: closure
-Version: 1.0
+Version: 1.1
 Maintainer: ipitio <21136719+ipitio@users.noreply.github.com>
-Depends: byobu, curl, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin, iperf3, iw, net-tools, nmap, qrencode, traceroute, tmux, wireguard, wmctrl, wget
+Depends: curl, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin, iw, net-tools, qrencode, wireguard, wmctrl, wget
+Recommends: byobu, iperf3, nmap, tmux, traceroute
 Copyright: debian/copyright
 Readme: debian/README.Debian
-Files:Description: Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
+Links: /usr/share/doc/closure /opt/closure/debian
+Description: Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
  You can run the entire stack as Docker services or just WireGuard on the host.
  If you run it with Docker, you'll also get Unbound and Pi-hole v5.

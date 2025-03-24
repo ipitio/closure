@@ -1,12 +1,20 @@
 #!/bin/bash
 
-# these will be automatically set by the init script
-script_user=ubuntu
-script_path=~/server
+pushd "$(dirname "$(readlink -f "$0")")" || exit 1
 
-sudo -i -u "$script_user" bash <<EOF
+if [ -f lib.sh ]; then
+    sudo bash init.sh
+    sudo bash start.sh "$@"
+else
+    script_user="$USER"
+    script_path="$PWD"
+
+    sudo -i -u "$script_user" bash <<EOF
 pushd "$script_path" || exit 1
 bash init.sh
 bash start.sh "$@"
 popd || exit 1
 EOF
+fi
+
+popd || exit 1

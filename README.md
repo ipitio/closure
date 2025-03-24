@@ -1,6 +1,6 @@
 <div align="center">
 
-# Cl<img src=closure.png height="19" width="19" style="top: .025em;position: relative;">sure
+# Cl<img src=closure.png height="19" width="19" style="top: .025em;position: relative;" alt="o">sure
 
 <strong>Complex? Simplicial.</strong>
 
@@ -51,18 +51,15 @@ Keep in mind that:
 > [!WARNING]
 > The WireGuard service in the Compose file must be configured whether or not you'll use Docker ([docs](https://docs.linuxserver.io/images/docker-wireguard)).
 
+> [!CAUTION]
+> If a user you specify in `env.sh` doesn't exist, it will be created. By default, the password will be the same as the username; change it!
+
 ### Deployment
 
 Set a node up in two or three steps:
 
-1. Move this directory to the target in any way you like. If you install the `deb` package provided in [Releases](https://github.com/ipitio/closure/releases), the directory will be in `/opt/closure`.
-2. Modify the files above and spin everything up by running, from the directory:
-
-```{bash}
-sudo bash init.sh
-sudo bash start.sh
-```
-
+1. Move this directory to the target in any way you like. If you install the `deb` package provided in [Releases](https://github.com/ipitio/closure/releases), the directory will be `/opt/closure`.
+2. Modify the files above and spin everything up by running `sudo bash kickstart.sh` from the directory.
 3. On a Hub or HaaS, add a Spoke or SaaH peer.
 
 Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH. Drop that configuration in the Spoke's or SaaH's `wireguard/config/wg_confs` directory after its Step 1.

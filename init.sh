@@ -56,6 +56,14 @@ if grep -q "quiet splash" /etc/default/grub; then
   sudo update-grub
 fi
 
+# Ensure users exist
+for user in $CLS_ACTIVE_USER $CLS_SCRIPT_USER; do
+  if ! user_exists "$user"; then
+    sudo useradd -m -s /bin/bash "$user"
+    echo "$user:$user" | sudo chpasswd
+  fi
+done
+
 # Autologin on boot
 if grep -q gdm3 /etc/X11/default-display-manager; then
   sudo sed -i "/AutomaticLogin\(Enable\)*=.*/d; /\[daemon\]/a AutomaticLoginEnable=true\nAutomaticLogin=$CLS_ACTIVE_USER" /etc/gdm3/custom.conf
@@ -78,11 +86,14 @@ fi
 # Autostart on login
 sed -i "s/script_user=.*$/script_user=$CLS_SCRIPT_USER/" kickstart.sh
 sed -i "s/script_path=.*$/script_path=$PWD/" kickstart.sh
-active_path=/home/"$CLS_ACTIVE_USER"/kickstart.sh
-allow_path="$CLS_ACTIVE_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$active_path"
+active_path=/home/"$CLS_ACTIVE_USER"/.closure/kickstart.sh
+allow_active="$CLS_ACTIVE_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$active_path"
+allow_script="$CLS_SCRIPT_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$PWD/*"
 sudo cp -f kickstart.sh "$active_path"
+sudo chmod +x "$active_path"
 sudo chown "$CLS_ACTIVE_USER":"$CLS_ACTIVE_USER" "$active_path"
-grep -q "$allow_path" /etc/sudoers || echo "$allow_path" | sudo EDITOR='tee -a' visudo
+grep -q "$allow_active" /etc/sudoers || echo "$allow_active" | sudo EDITOR='tee -a' visudo
+grep -q "$allow_script" /etc/sudoers || echo "$allow_script" | sudo EDITOR='tee -a' visudo
 
 if grep -qE '(gdm3|lightdm)' /etc/X11/default-display-manager; then
   [ -d /home/"$CLS_ACTIVE_USER"/.config/autostart ] || sudo mkdir -p /home/"$CLS_ACTIVE_USER"/.config/autostart
@@ -97,7 +108,7 @@ else
   grep -q "sudo $active_path $CLS_STARTUP_ARGS" /home/"$CLS_ACTIVE_USER"/.profile || echo "[ -n $SSH_CLIENT ] || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
 
-# Install deps, installed manually: openssh-server
+# Install deps when connected
 [ -z "$CLS_GATEWAY" ] || until ping -c1 "$CLS_GATEWAY" >/dev/null; do :; done
 
 apt_install() {
@@ -118,8 +129,6 @@ if ! dpkg -l docker-ce >/dev/null 2>&1; then
   sudo install -m 0755 -d /etc/apt/keyrings
   sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-  # shellcheck disable=SC1091
   echo \
     "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
     $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
@@ -130,7 +139,7 @@ fi
 sudo systemctl disable --now whoopsie.path &>/dev/null
 sudo systemctl mask whoopsie.path &>/dev/null
 sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
-apt_install byobu docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin iperf3 iw net-tools nmap qrencode snapd traceroute tmux wireguard wmctrl
+apt_install "$(grep -oP '((?<=^Depends: )|(?<=^Recommends: )).*' debian/control | tr -d ',' | tr '\n' ' ')"
 sudo apt autoremove -y
 
 # Prepare DDNS

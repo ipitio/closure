@@ -28,6 +28,8 @@ while IFS= read -r line; do
     declare "$var_name=$var_value"
 done < <(grep -oP 'SERVER_ALLOWEDIPS_PEER_.*=.*' compose.yml)
 
+user_exists() { id "$1" &>/dev/null; }
+
 sudo() {
     if command -v sudo >/dev/null; then
         command sudo "$@"
