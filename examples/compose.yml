@@ -1,8 +1,19 @@
 services:
 
+  emulator:
+    image: tonistiigi/binfmt
+    container_name: emulator
+    restart: "no"
+    privileged: true
+    command: --install amd64
+    network_mode: bridge
+
   unbound:
+    depends_on:
+      - emulator
     image: mvance/unbound:latest
     restart: unless-stopped
+    platform: linux/amd64
     # Uncomment the following lines to use this as a recursive resolver
     #volumes:
     #  - ./unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro
@@ -14,10 +25,13 @@ services:
         ipv4_address: 10.5.0.2
 
   dhcphelper:
-    restart: unless-stopped
+    depends_on:
+      - emulator
+    image: homeall/dhcphelper:slim
     container_name: dhcphelper
+    restart: unless-stopped
+    platform: linux/amd64
     network_mode: host
-    image: homeall/dhcphelper:latest
     environment:
       IP: '10.5.0.3'
       TZ: 'US/Eastern'
@@ -37,6 +51,7 @@ services:
         RUN curl -sSLNZ https://raw.githubusercontent.com/jacklul/pihole-updatelists/master/install.sh | sudo bash -s docker
     container_name: pihole
     restart: unless-stopped
+    platform: linux/amd64
     cap_add:
       - NET_ADMIN
     volumes:

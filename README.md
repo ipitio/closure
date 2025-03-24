@@ -10,9 +10,7 @@
 
 Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
 
-You can run the entire stack as Docker services or just WireGuard on the host. If you run it with Docker, you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists).
-
-If you have an Arm machine, it unfortunately may not be able to run the entire stack with these scripts since the images weren't built for your architecture. This means it might not make for a very good Hub, unless you set those things up yourself, but it'll work fine as a node otherwise!
+You can run the entire stack as Docker services or just WireGuard on the host. If you run it with Docker (available for armv7+ and amd64), you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists).
 
 ## Getting Started
 
