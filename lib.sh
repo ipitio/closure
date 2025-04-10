@@ -56,7 +56,7 @@ get_local_iface() {
 get_local_ip() {
     CLS_LOCAL_IFACE=$(get_local_iface)
     [ -n "$CLS_LOCAL_IFACE" ] || return 1
-    ip r | grep -q '^default via' || sudo ip r add default via "$(nmcli dev show "$CLS_LOCAL_IFACE" | grep -oP '((?<=GATEWAY:)[^-]*|/0.*?= [^,]+)' | grep -oE '[^ ]+$' | head -n1)" &>/dev/null
+    ip r | grep -q '^default via' || sudo ip r add default via "$(nmcli dev show "$CLS_LOCAL_IFACE" | grep -oP '((?<=GATEWAY:)[^-]*|/0.*?= [^,]+)' | grep -oE '[^ ]+$' | head -n1)" dev "$CLS_LOCAL_IFACE" &>/dev/null
     CLS_GATEWAY=$(ip r | grep -oP '^default via \K\S+')
     ip a show "$CLS_LOCAL_IFACE" | grep -oP 'inet \K\S+' | cut -d/ -f1
 }
@@ -72,8 +72,8 @@ set_netplan() {
     sudo netplan apply
     local try=0
     until CLS_LOCAL_IP=$(get_local_ip); do ((try++)) && ((try > 60)) && return 1 || sleep 1; done
-    sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
-    sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] || echo "bandwidth $CLS_BANDWIDTH")" diffserv8 nat docsis ack-filter
+    [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
+    [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
     sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$CLS_LOCAL_IP/" compose.yml
 }
 
@@ -83,7 +83,7 @@ is_ip() {
 
 should_check_server_ip() {
     if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && ! is_ip "$SERVERURL"; then
-        is_ip "$CLS_WG_SERVER_IP" || CLS_WG_SERVER_IP=$(dig +short "$SERVERURL")
+        is_ip "$CLS_WG_SERVER_IP" || CLS_WG_SERVER_IP=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
         return 0
     fi
 

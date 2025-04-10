@@ -34,3 +34,6 @@ CLS_DOMAIN="internal"
 
 # Expected network speed as described here: https://man7.org/linux/man-pages/man8/tc-cake.8.html
 CLS_BANDWIDTH=""
+
+# If using a wireless interface to connect to the gateway, set its name
+CLS_WIFACE=""

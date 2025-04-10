@@ -1,12 +1,11 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2015
+# shellcheck disable=SC1091,SC2009,SC2015,SC2068
 
 this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "lib.sh"
-
-# shellcheck disable=SC2009
-ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do [ "$pid" = "$$" ] || sudo kill -9 "$pid" &>/dev/null; done
+pids=$(ps -o ppid=$$)
+ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
 sudo systemctl enable --now docker
 
 for table in nat filter; do
@@ -16,16 +15,16 @@ for table in nat filter; do
   done
 done
 
-sudo bash hooks/pre-up.sh "$@"
+sudo bash hooks/pre-up.sh ${@@Q}
 
 (
   should_check_server_ip
   until ip a show "$CLS_INTERN_IFACE" | grep -q UP; do sleep 1; done
 
   while ip a show "$CLS_INTERN_IFACE" | grep -q UP; do
-    if ! ip rule show table 7 | grep -qP '0x55' || ! ip route show table 7 | grep -q default; then
-      ip route show table 7 | grep -q default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IP" table 7 &>/dev/null
-      ip rule show table 7 | grep -qP '0x55' || sudo ip rule add fwmark 0x55 table 7 &>/dev/null
+    if ! ip rule show table 7 2>/dev/null | grep -qP '0x55' || ! ip route show table 7 2>/dev/null | grep -q default; then
+      ip route show table 7 2>/dev/null | grep -q default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IFACE" table 7
+      ip rule show table 7 2>/dev/null | grep -qP '0x55' || sudo ip rule add fwmark 0x55 table 7 &>/dev/null
       sudo ip route flush cache
     fi
 
@@ -36,7 +35,7 @@ sudo bash hooks/pre-up.sh "$@"
     fi
 
     if should_check_server_ip; then
-      core_ip_now=$(dig +short "$SERVERURL")
+      core_ip_now=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
 
       # Only ping and break if either DNS failed or IP changed
       if ! is_ip "$core_ip_now" || (is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ]); then
@@ -51,10 +50,11 @@ sudo bash hooks/pre-up.sh "$@"
     sleep 5
   done
 
-  exec sudo bash restart.sh "$@"
+  exec sudo bash restart.sh ${@@Q}
 ) &
 
 if $CLS_DOCKER; then
+  sudo systemctl stop isc-dhcp-server
   # prod starts wg
   if ! ip a show "$CLS_INTERN_IFACE" | grep -q UP; then
     sudo systemctl restart docker
@@ -66,14 +66,15 @@ if $CLS_DOCKER; then
   fi
 else
   bash wireguard/etc/run
+  sudo mkdir -p /etc/wireguard
   sudo ln -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf /etc/wireguard/"$CLS_INTERN_IFACE".conf
   sudo wg-quick up "$CLS_INTERN_IFACE"
 fi
 
-# add hotspot
-set_netplan closed
-
 # Lower the drawbridges
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo sysctl -w net.ipv6.conf.all.forwarding=1
+
 for tables in iptables ip6tables; do
   sudo "$tables" -I FORWARD -i "$CLS_INTERN_IFACE" -j ACCEPT &>/dev/null
   sudo "$tables" -I FORWARD -o "$CLS_INTERN_IFACE" -j ACCEPT &>/dev/null
@@ -115,5 +116,5 @@ if sudo docker ps | grep -qE "pihole.*Up" && ! sudo docker exec pihole sh -c "if
   sudo docker compose restart --no-deps pihole
 fi
 
-sudo bash hooks/post-up.sh "$@"
+sudo bash hooks/post-up.sh ${@@Q}
 popd || exit

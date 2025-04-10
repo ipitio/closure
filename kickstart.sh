@@ -1,18 +1,17 @@
 #!/bin/bash
+# shellcheck disable=SC2068
 
 pushd "$(dirname "$(readlink -f "$0")")" || exit 1
 
 if [ -f lib.sh ]; then
-    sudo bash init.sh
-    sudo bash start.sh "$@"
+    sudo bash init.sh ${@@Q}
+    sudo bash start.sh ${@@Q}
 else
-    script_user="$USER"
     script_path="$PWD"
-
-    sudo -i -u "$script_user" bash <<EOF
+    sudo -i bash <<EOF
 pushd "$script_path" || exit 1
-bash init.sh
-bash start.sh "$@"
+sudo bash init.sh ${@@Q}
+sudo bash start.sh ${@@Q}
 popd || exit 1
 EOF
 fi

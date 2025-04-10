@@ -100,13 +100,14 @@ services:
       - PGID=1000
       - TZ=US/Eastern
       - LOG_CONFS=true
-      # Delete or leave blank the variables under this line on a Spoke or SaaH, unless you want to use it in server mode as well
+      # Fill these in
       - SERVERURL=
       - SERVERPORT=
+      - INTERNAL_SUBNET=10.13.13.0
+      # Only fill the rest in on Spoke or SaaH if you want to use it in server mode too
       - PEERS=
       # If running Pi-hole or another resolver on this or another node, change DNS to it
       - PEERDNS=1.1.1.1,1.0.0.1
-      - INTERNAL_SUBNET=10.13.13.0
       - ALLOWEDIPS=0.0.0.0/1,128.0.0.0/1,::/1,8000::/1
 
 

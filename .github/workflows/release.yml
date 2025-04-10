@@ -17,18 +17,18 @@ jobs:
       - name: Build package
         id: build
         run: |
-          sed -i "s,^Description:,Files:$(find . -type f | grep -oP '(?<=^\./).*' | grep -vP '^(\.|debian/)' | while read -r file; do echo -e " $file /opt/closure/$file"; done | grep -oP '.*(?=/)' | awk -v ORS='\\n' '1')Description:," debian/control
+          sed -i "s,^Description:,Files:$(find . -type f | grep -oP '(?<=^\./).*' | grep -vP '^\./' | while read -r file; do echo -e " $file /opt/closure/$file"; done | grep -oP '.*(?=/)' | awk -v ORS='\\n' '1')Description:," debian/control
           sudo apt-get update
           sudo apt-get install -y equivs
           equivs-build debian/control
-          echo -e "built=$?\ntag=$(grep -oP '(?<=^Version: ).*' debian/control)\n" >> "$GITHUB_OUTPUT"
+          echo -e "built=$?\ntag=$(grep -oP '(?<=^Version: ).*' debian/control)\nmessage=$(git log -1 --pretty=%B)\n" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         if: ${{ steps.build.outputs.built == '0' }}
         uses: ncipollo/release-action@v1
         with:
           artifacts: "*.deb"
-          body: "Please see the README for any changes."
+          body: ${{ steps.build.outputs.message }}
           tag: "v${{ steps.build.outputs.tag }}"
           commit: "master"
           allowUpdates: true
