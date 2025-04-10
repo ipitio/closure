@@ -11,6 +11,38 @@ Recommends: byobu, iperf3, nmap, tmux, traceroute
 Copyright: debian/copyright
 Readme: debian/README.Debian
 Links: /usr/share/doc/closure /opt/closure/debian
+Files: debian/copyright /opt/closure/DEBIAN/debian
+ debian/postinst /opt/closure/DEBIAN/debian
+ debian/README.Debian /opt/closure/DEBIAN/debian
+ debian/control /opt/closure/DEBIAN/debian
+ closure.png /opt/closure
+ LICENSE /opt/closure
+ README.md /opt/closure
+ kickstart.sh /opt/closure
+ restart.sh /opt/closure
+ start.sh /opt/closure
+ stop.sh /opt/closure
+ wireguard/add.sh /opt/closure/wireguard
+ wireguard/etc/run /opt/closure/wireguard/etc
+ wireguard/defaults/peer.conf /opt/closure/wireguard/defaults
+ wireguard/defaults/server.conf /opt/closure/wireguard/defaults
+ wireguard/get.sh /opt/closure/wireguard
+ wireguard/app/show-peer /opt/closure/wireguard/app
+ wireguard/del.sh /opt/closure/wireguard
+ examples/unbound/unbound.conf /opt/closure/examples/unbound
+ examples/hooks/post-up.sh /opt/closure/examples/hooks
+ examples/hooks/post-down.sh /opt/closure/examples/hooks
+ examples/hooks/pre-up.sh /opt/closure/examples/hooks
+ examples/hooks/pre-down.sh /opt/closure/examples/hooks
+ examples/compose.yml /opt/closure/examples
+ examples/dhcp/isc-dhcp-server /opt/closure/examples/dhcp
+ examples/dhcp/dhcpd.conf /opt/closure/examples/dhcp
+ examples/netplan/open.yml /opt/closure/examples/netplan
+ examples/netplan/closed.yml /opt/closure/examples/netplan
+ examples/env.sh /opt/closure/examples
+ sysctl.conf /opt/closure
+ init.sh /opt/closure
+ lib.sh /opt/closure
 Description: Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
  You can run the entire stack as Docker services or just WireGuard on the host.
  If you run it with Docker, you'll also get Unbound and Pi-hole v5.

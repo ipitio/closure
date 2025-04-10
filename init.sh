@@ -50,7 +50,7 @@ sudo systemctl disable --now whoopsie.path &>/dev/null
 sudo systemctl mask whoopsie.path &>/dev/null
 sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
 # shellcheck disable=SC2046
-apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )).*' debian/control | tr -d ',' | tr '\n' ' ')
+apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )).*' DEBIAN/control | tr -d ',' | tr '\n' ' ')
 sudo apt autoremove -y
 yq -V | grep -q mikefarah 2>/dev/null || {
   [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
