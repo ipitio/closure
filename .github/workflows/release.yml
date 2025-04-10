@@ -17,7 +17,8 @@ jobs:
       - name: Build package
         id: build
         run: |
-          sed -i "s,^Description:,Files:$(find . -type f | grep -oP '(?<=^\./).*' | grep -vP '^\./' | while read -r file; do echo -e " $file /opt/closure/$file"; done | grep -oP '.*(?=/)' | awk -v ORS='\\n' '1')Description:," debian/control
+          sed -i "s,^Description:,Files:$(find . -type f | grep -oP '(?<=^\./).*' | grep -vP '^(\.|debian/)' | while read -r file; do echo -e " $file /opt/closure/$file"; done | grep -oP '.*(?=/)' | awk -v ORS='\\n' '1')Description:," debian/control
+          sed -i "s,^Files:,Files:$(find . -type f | grep -oP '(?<=^\./).*' | grep -P '(?<=^debian/).+' | while read -r file; do echo -e " $file /opt/closure/DEBIAN/$file"; done | grep -oP '.*(?=/)' | awk -v ORS='\\n' '1')," debian/control
           sudo apt-get update
           sudo apt-get install -y equivs
           equivs-build debian/control
