@@ -71,8 +71,8 @@ source "lib.sh"
 mkdir config
 [ -f config/wifis.json ] || echo "{}" >config/wifis.json
 if [ -n "$WIFI" ]; then
-  ! $PORTAL || jq "(. | select(\"$WIFI\") | .$WIFI) = \"$MAC\"" config/wifis.json
-  yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI.password=\"$PASSWD\"" netplan/closed.yml
+  ! $PORTAL || jq "(. | select(\"$WIFI\") | .$WIFI) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
+  [ -n "$PASSWD" ] && yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI.password=\"$PASSWD\"" netplan/closed.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI={}" netplan/closed.yml
 fi
 
 # Free port 53 on Ubuntu for Pi-hole
@@ -136,10 +136,15 @@ if $CLS_DOCKER; then
   sudo docker compose up -d --remove-orphans
 else
   source dhcp/isc-dhcp-server
+
   if [ -n "$INTERFACESv4" ]; then
-    cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
-    cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
-    sudo systemctl restart isc-dhcp-server
+    if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
+      sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
+      sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
+      sudo systemctl restart isc-dhcp-server
+    fi
+
+    sudo systemctl start isc-dhcp-server
   else
     sudo systemctl stop isc-dhcp-server
   fi
@@ -238,6 +243,6 @@ if [ -n "$CLS_DYN_DNS" ]; then
   fi
 fi
 
-until ping -c1 "${CLS_GATEWAY:-1.1.1.1}" >/dev/null; do ((timer++ != 90)) || set_netplan open; done
+until ping -c1 "${CLS_GATEWAY:-1.1.1.1}" &>/dev/null; do ((timer++ != 90)) || set_netplan open; done
 set_netplan closed
 popd || exit 1
