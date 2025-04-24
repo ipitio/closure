@@ -65,7 +65,7 @@ if $CLS_DOCKER; then
     sudo docker compose up -d wireguard
   fi
 else
-  bash wireguard/etc/run
+  sudo bash wireguard/etc/run
   sudo mkdir -p /etc/wireguard
   sudo ln -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf /etc/wireguard/"$CLS_INTERN_IFACE".conf
   sudo wg-quick up "$CLS_INTERN_IFACE"

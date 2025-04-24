@@ -4,10 +4,10 @@ Homepage: https://github.com/ipitio/closure
 Standards-Version: 3.9.2
 
 Package: closure
-Version: 1.2.1
+Version: 1.3
 Maintainer: ipitio <21136719+ipitio@users.noreply.github.com>
-Depends: curl, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin, macchanger, network-manager, isc-dhcp-server, iw, net-tools, qrencode, wireguard, wmctrl, wget
-Recommends: byobu, iperf3, nmap, tmux, traceroute
+Depends: curl, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin, macchanger, network-manager, isc-dhcp-server, iw, net-tools, qrencode, wireguard, wireless-tools, wmctrl, wget
+Recommends: build-essential, byobu, dkms, iperf3, nmap, tmux, traceroute
 Copyright: debian/copyright
 Readme: debian/README.Debian
 Links: /usr/share/doc/closure /opt/closure/debian

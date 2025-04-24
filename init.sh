@@ -8,6 +8,24 @@ PASSWD="$4" # string: password of the wifi, if it has one
 
 this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
+source "env.sh"
+
+if [ -f /boot/firmware/cmdline.txt ]; then
+  if [ -n "$CLS_OTG_g_" ] && ! grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/cmdline.txt; then
+    grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudo tee -a /boot/firmware/config.txt
+    sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=peripheral/g" /boot/firmware/cmdline.txt
+    grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
+    grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
+    grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
+    sudo sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
+    ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudo sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
+    sudo reboot
+  elif grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/cmdline.txt; then
+    sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=host/g" /boot/firmware/cmdline.txt
+    sudo reboot
+  fi
+fi
+
 pids=$(ps -o ppid=$$)
 ps -aux | grep -P "^[^-]+$this_dir/init.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
 mv -n examples/* . 2>/dev/null
@@ -243,6 +261,6 @@ if [ -n "$CLS_DYN_DNS" ]; then
   fi
 fi
 
-until ping -c1 "${CLS_GATEWAY:-1.1.1.1}" &>/dev/null; do ((timer++ != 90)) || set_netplan open; done
+until ping -c1 1.1.1.1 &>/dev/null; do ((timer++ != 90)) || set_netplan open; done
 set_netplan closed
 popd || exit 1

@@ -37,3 +37,6 @@ CLS_BANDWIDTH=""
 
 # If using a wireless interface to connect to the gateway, set its name
 CLS_WIFACE=""
+
+# Load "serial", "ether", etc. module
+CLS_OTG_g_=""
