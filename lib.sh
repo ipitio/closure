@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2015,SC2034
+# shellcheck disable=SC1091,SC2009,SC2015,SC2034
 # Definitions for Closure
 
 set -a
@@ -67,9 +67,18 @@ CLS_WG_SERVER=$(echo "$INTERNAL_SUBNET" | awk 'BEGIN{FS=OFS="."} NF--').1
 CLS_WG_SERVER_IP=""
 
 set_netplan() {
+    ps -aux | grep -P "^[^-]+hostapd" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
+    IFS='/' read -r -a wifaces <<<"$CLS_AP_WIFACES"
+
+    for wiface in "${!wifaces[@]}"; do
+        sudo rm -f /var/run/hostapd/"$wiface" &>/dev/null
+        [[ ! "$wiface" =~ @ ]] || sudo iw dev "$wiface" del &>/dev/null
+    done
+
     sudo cp -f netplan/"${1:-open}".yml /etc/netplan/99_config.yaml
     sudo chmod 0600 /etc/netplan/99_config.yaml
     sudo netplan apply
+    sudo iw dev "$CLS_WIFACE" set power_save off
     local try=0
     until CLS_LOCAL_IP=$(get_local_ip); do ((try++)) && ((try > 60)) && return 1 || sleep 1; done
     [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null

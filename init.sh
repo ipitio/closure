@@ -6,24 +6,39 @@ PORTAL=$2   # bool: true/false, whether wifi uses a captive portal
 MAC="$3"    # string: MAC address of a device previously connected to the wifi, used if $PORTAL is true
 PASSWD="$4" # string: password of the wifi, if it has one
 
+sudo() {
+    if command -v sudo >/dev/null; then
+        command sudo "$@"
+    else
+        "$@"
+    fi
+}
+
+apt_install() {
+    if ! dpkg -l "$@" >/dev/null 2>&1; then
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq "$@"
+    fi
+}
+
 this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "env.sh"
 
 if [ -f /boot/firmware/cmdline.txt ]; then
-  if [ -n "$CLS_OTG_g_" ] && ! grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/cmdline.txt; then
-    grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudo tee -a /boot/firmware/config.txt
-    sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=peripheral/g" /boot/firmware/cmdline.txt
-    grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
-    grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
-    grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
-    sudo sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
-    ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudo sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
-    sudo reboot
-  elif grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/cmdline.txt; then
-    sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=host/g" /boot/firmware/cmdline.txt
-    sudo reboot
-  fi
+    if [ -n "$CLS_OTG_g_" ] && ! grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
+        grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudo tee -a /boot/firmware/config.txt
+        sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=peripheral/g" /boot/firmware/config.txt
+        grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
+        grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
+        grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
+        grep -qP "modules-load=.*g_$CLS_OTG_g_" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
+        ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudo sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
+        sudo reboot
+    elif [ -z "$CLS_OTG_g_" ] && grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
+        sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=host/g" /boot/firmware/config.txt
+        sudo reboot
+    fi
 fi
 
 pids=$(ps -o ppid=$$)
@@ -31,36 +46,21 @@ ps -aux | grep -P "^[^-]+$this_dir/init.sh" | awk '{print $2}' | while read -r p
 mv -n examples/* . 2>/dev/null
 rmdir examples 2>/dev/null
 
-sudo() {
-  if command -v sudo >/dev/null; then
-    command sudo "$@"
-  else
-    "$@"
-  fi
-}
-
-apt_install() {
-  if ! dpkg -l "$@" >/dev/null 2>&1; then
-    sudo apt-get update
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq "$@"
-  fi
-}
-
 if ! dpkg -l apt-fast >/dev/null 2>&1; then
-  sudo add-apt-repository -y ppa:apt-fast/stable
-  sudo apt-get update
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq apt-fast
+    sudo add-apt-repository -y ppa:apt-fast/stable
+    sudo apt-get update
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq apt-fast
 fi
 
 if ! dpkg -l docker-ce >/dev/null 2>&1; then
-  apt_install ca-certificates curl
-  sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  sudo chmod a+r /etc/apt/keyrings/docker.asc
-  echo \
-    "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    apt_install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    echo \
+        "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
     $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
-    sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+        sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 fi
 
 [ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudo mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
@@ -68,19 +68,19 @@ sudo systemctl disable --now whoopsie.path &>/dev/null
 sudo systemctl mask whoopsie.path &>/dev/null
 sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
 # shellcheck disable=SC2046
-apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )).*' DEBIAN/control | tr -d ',' | tr '\n' ' ')
+apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )).*' debian/control | tr -d ',' | tr '\n' ' ')
 sudo apt autoremove -y
 yq -V | grep -q mikefarah 2>/dev/null || {
-  [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
-  arch=$(uname -m)
-  [ "$arch" = "x86_64" ] && arch="amd64"
-  [ "$arch" = "aarch64" ] && arch="arm64"
-  [ "$arch" = "armv7l" ] && arch="armhf"
-  [ "$arch" = "armhf" ] && arch="arm"
-  [ "$arch" = "i686" ] && arch="386"
-  [ "$arch" = "i386" ] && arch="386"
-  sudo curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_"$arch"
-  sudo chmod +x /usr/bin/yq
+    [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
+    arch=$(uname -m)
+    [ "$arch" = "x86_64" ] && arch="amd64"
+    [ "$arch" = "aarch64" ] && arch="arm64"
+    [ "$arch" = "armv7l" ] && arch="armhf"
+    [ "$arch" = "armhf" ] && arch="arm"
+    [ "$arch" = "i686" ] && arch="386"
+    [ "$arch" = "i386" ] && arch="386"
+    sudo curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_"$arch"
+    sudo chmod +x /usr/bin/yq
 }
 source "lib.sh"
 
@@ -89,8 +89,8 @@ source "lib.sh"
 mkdir config
 [ -f config/wifis.json ] || echo "{}" >config/wifis.json
 if [ -n "$WIFI" ]; then
-  ! $PORTAL || jq "(. | select(\"$WIFI\") | .$WIFI) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
-  [ -n "$PASSWD" ] && yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI.password=\"$PASSWD\"" netplan/closed.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI={}" netplan/closed.yml
+    ! $PORTAL || jq "(. | select(\"$WIFI\") | .$WIFI) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
+    [[ -n "$PASSWD" || "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI.password=\"$PASSWD\"" netplan/closed.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI={}" netplan/closed.yml
 fi
 
 # Free port 53 on Ubuntu for Pi-hole
@@ -104,7 +104,7 @@ sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 # general performance
 # https://cromwell-intl.com/open-source/performance-tuning/tcp.html
 while IFS= read -r line; do
-  grep -qP "^#?.*$(echo "$line" | cut -d= -f1) ?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^#\?.*$(echo "$line" | cut -d= -f1) \?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf >/dev/null
+    grep -qP "^#?.*$(echo "$line" | cut -d= -f1) ?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^#\?.*$(echo "$line" | cut -d= -f1) \?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf >/dev/null
 done <sysctl.conf
 grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf >/dev/null
 sudo sysctl -p
@@ -119,53 +119,53 @@ sudo cp -f /etc/NetworkManager/conf.d/wifi-powersave.conf /etc/NetworkManager/co
 
 if grep -q Raspberry /proc/device-tree/model; then
 
-  # wifi 2.4GHz performance
-  grep -q dtoverlay=disable-bt /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt >/dev/null
+    # wifi 2.4GHz performance
+    grep -q dtoverlay=disable-bt /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt >/dev/null
 
-  if [ ! -f /etc/modprobe.d/brcmfmac.conf ]; then
-    # wifi chip bug: https://github.com/raspberrypi/linux/issues/6049#issuecomment-2642566713
-    echo "options brcmfmac roamoff=1 feature_disable=0x202000" | sudo tee /etc/modprobe.d/brcmfmac.conf >/dev/null
-    sudo systemctl restart systemd-modules-load
-  fi
+    if [ ! -f /etc/modprobe.d/brcmfmac.conf ]; then
+        # wifi chip bug: https://github.com/raspberrypi/linux/issues/6049#issuecomment-2642566713
+        echo "options brcmfmac roamoff=1 feature_disable=0x202000" | sudo tee /etc/modprobe.d/brcmfmac.conf >/dev/null
+        sudo systemctl restart systemd-modules-load
+    fi
 fi
 
 # DHCP
 if $CLS_DOCKER; then
-  sudo mkdir -p /etc/docker
-  echo '{
+    sudo mkdir -p /etc/docker
+    echo '{
     "ipv6": true,
     "fixed-cidr-v6": "2001:db8:1::/64",
     "userland-proxy": false
   }' | sudo tee /etc/docker/daemon.json >/dev/null
-  sudo systemctl daemon-reload
-  sudo docker compose build
-  sudo systemctl enable --now docker
+    sudo systemctl daemon-reload
+    sudo docker compose build
+    sudo systemctl enable --now docker
 
-  for table in nat filter; do
-    for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
-      sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
-      sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
+    for table in nat filter; do
+        for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
+            sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
+            sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
+        done
     done
-  done
 
-  sudo systemctl stop isc-dhcp-server
-  sudo systemctl restart docker
-  sudo docker network prune -f
-  sudo docker compose up -d --remove-orphans
-else
-  source dhcp/isc-dhcp-server
-
-  if [ -n "$INTERFACESv4" ]; then
-    if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
-      sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
-      sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
-      sudo systemctl restart isc-dhcp-server
-    fi
-
-    sudo systemctl start isc-dhcp-server
-  else
     sudo systemctl stop isc-dhcp-server
-  fi
+    sudo systemctl restart docker
+    sudo docker network prune -f
+    sudo docker compose up -d --remove-orphans
+else
+    source dhcp/isc-dhcp-server
+
+    if [ -n "$INTERFACESv4" ]; then
+        if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
+            sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
+            sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
+            sudo systemctl restart isc-dhcp-server
+        fi
+
+        sudo systemctl start isc-dhcp-server
+    else
+        sudo systemctl stop isc-dhcp-server
+    fi
 fi
 
 # Configure nm
@@ -174,47 +174,48 @@ sudo mkdir -p /etc/cloud/cloud.cfg.d
 sudo touch /etc/cloud/cloud-init.disabled
 echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
 sudo rm -f /etc/netplan/50-cloud-init.yaml
+sudo rfkill unblock wlan
 set_netplan closed
 sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
 
 set_mac="$(jq ".$(iw dev | grep -zoE "$CLS_WIFACE.*type" | tr '\0' '\n' | grep -oP '(?<=ssid ).+')" config/wifis.json 2>/dev/null | tr -d '"')"
 if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig | grep -zoE "$CLS_WIFACE:.*ether \S+" | grep -zoE '\S+$' | tr -d '\0')" ]; then
-  sudo ifconfig "$CLS_WIFACE" down
-  sudo macchanger -m "$set_mac" "$CLS_WIFACE"
-  sudo ifconfig "$CLS_WIFACE" up
+    sudo ifconfig "$CLS_WIFACE" down
+    sudo macchanger -m "$set_mac" "$CLS_WIFACE"
+    sudo ifconfig "$CLS_WIFACE" up
 fi
 
 # Verbose boot
 if [ -f /etc/default/grub ] && grep -q "quiet splash" /etc/default/grub; then
-  sudo sed -i 's/quiet splash//g' /etc/default/grub
-  sudo update-grub
+    sudo sed -i 's/quiet splash//g' /etc/default/grub
+    sudo update-grub
 fi
 
 # Ensure users exist
 for user in $CLS_ACTIVE_USER $CLS_SCRIPT_USER; do
-  if ! user_exists "$user"; then
-    sudo useradd -m -s /bin/bash "$user"
-    echo "$user:$user" | sudo chpasswd
-  fi
+    if ! user_exists "$user"; then
+        sudo useradd -m -s /bin/bash "$user"
+        echo "$user:$user" | sudo chpasswd
+    fi
 done
 
 # Autologin on boot
 if grep -q gdm3 /etc/X11/default-display-manager 2>/dev/null; then
-  sudo sed -i "/AutomaticLogin\(Enable\)*=.*/d; /\[daemon\]/a AutomaticLoginEnable=true\nAutomaticLogin=$CLS_ACTIVE_USER" /etc/gdm3/custom.conf
+    sudo sed -i "/AutomaticLogin\(Enable\)*=.*/d; /\[daemon\]/a AutomaticLoginEnable=true\nAutomaticLogin=$CLS_ACTIVE_USER" /etc/gdm3/custom.conf
 elif grep -q lightdm /etc/X11/default-display-manager 2>/dev/null; then
-  echo -e "[Seat:*]\nautologin-guest=false\nautologin-user=$CLS_ACTIVE_USER\nautologin-user-timeout=0\n" | sudo tee /etc/lightdm/lightdm.conf >/dev/null
+    echo -e "[Seat:*]\nautologin-guest=false\nautologin-user=$CLS_ACTIVE_USER\nautologin-user-timeout=0\n" | sudo tee /etc/lightdm/lightdm.conf >/dev/null
 elif grep -q sddm /etc/X11/default-display-manager 2>/dev/null; then
-  sudo sed -i '/\[Autologin\]/,/^$/d' /etc/sddm.conf
-  echo -e "[Autologin]\nUser=$CLS_ACTIVE_USER\n\n" | sudo tee -a /etc/sddm.conf >/dev/null
+    sudo sed -i '/\[Autologin\]/,/^$/d' /etc/sddm.conf
+    echo -e "[Autologin]\nUser=$CLS_ACTIVE_USER\n\n" | sudo tee -a /etc/sddm.conf >/dev/null
 else
-  mkdir -p /etc/systemd/system/getty@tty1.service.d
-  echo "[Service]
+    mkdir -p /etc/systemd/system/getty@tty1.service.d
+    echo "[Service]
 ExecStart=
 ExecStart=-/sbin/agetty --noissue --autologin $CLS_ACTIVE_USER %I $TERM
 Type=idle
 " | sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf >/dev/null
-  sudo systemctl daemon-reload
-  sudo systemctl enable getty@tty1
+    sudo systemctl daemon-reload
+    sudo systemctl enable getty@tty1
 fi
 
 # Autostart on login
@@ -230,8 +231,8 @@ sudo grep -q "$allow_active" /etc/sudoers || echo "$allow_active" | sudo EDITOR=
 sudo grep -q "$allow_script" /etc/sudoers || echo "$allow_script" | sudo EDITOR='tee -a' visudo
 
 if grep -qE '(gdm3|lightdm)' /etc/X11/default-display-manager; then
-  [ -d /home/"$CLS_ACTIVE_USER"/.config/autostart ] || sudo mkdir -p /home/"$CLS_ACTIVE_USER"/.config/autostart
-  echo "[Desktop Entry]
+    [ -d /home/"$CLS_ACTIVE_USER"/.config/autostart ] || sudo mkdir -p /home/"$CLS_ACTIVE_USER"/.config/autostart
+    echo "[Desktop Entry]
 Type=Application
 Name=Kickstart
 Exec=sudo $active_path $CLS_STARTUP_ARGS
@@ -239,28 +240,33 @@ Icon=system-run
 X-GNOME-Autostart-enabled=true
 " | sudo tee /home/"$CLS_ACTIVE_USER"/.config/autostart/kickstart.desktop >/dev/null
 else
-  ! grep -q "$active_path" /home/"$CLS_ACTIVE_USER"/.profile || sudo sed -i "\,$active_path,d" /home/"$CLS_ACTIVE_USER"/.profile
-  echo "grep -qP '\d+' <<<\"\$SSH_CLIENT\" || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
+    ! grep -q "$active_path" /home/"$CLS_ACTIVE_USER"/.profile || sudo sed -i "\,$active_path,d" /home/"$CLS_ACTIVE_USER"/.profile
+    echo "grep -qP '\d+' <<<\"\$SSH_CLIENT\" || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
 
 # Prepare DDNS
 (crontab -l 2>/dev/null | grep -Fv "$CLS_DYN_DNS") | crontab -
 
 if [ -n "$CLS_DYN_DNS" ]; then
-  if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
-    if [ -z "$CLS_EXTERN_IFACE" ] && ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
-      (
-        crontab -l 2>/dev/null
-        echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/wget --no-check-certificate -O - $CLS_DYN_DNS >> /tmp/ddns.log 2>&1 &"
-      ) | crontab -
-    fi
+    if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
+        if [ -z "$CLS_EXTERN_IFACE" ] && ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
+            (
+                crontab -l 2>/dev/null
+                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/wget --no-check-certificate -O - $CLS_DYN_DNS >> /tmp/ddns.log 2>&1 &"
+            ) | crontab -
+        fi
 
-    ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-  else
-    ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-  fi
+        ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
+    else
+        ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
+    fi
 fi
 
 until ping -c1 1.1.1.1 &>/dev/null; do ((timer++ != 90)) || set_netplan open; done
 set_netplan closed
+
+# Allow for split AP+STA mode
+sudo systemctl stop hostapd &>/dev/null
+sudo systemctl disable hostapd &>/dev/null
+sudo systemctl mask hostapd &>/dev/null
 popd || exit 1

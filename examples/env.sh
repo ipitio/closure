@@ -35,8 +35,17 @@ CLS_DOMAIN="internal"
 # Expected network speed as described here: https://man7.org/linux/man-pages/man8/tc-cake.8.html
 CLS_BANDWIDTH=""
 
+# Load "serial", "ether", etc. module, leave empty for host mode
+CLS_OTG_g_=""
+
 # If using a wireless interface to connect to the gateway, set its name
 CLS_WIFACE=""
 
-# Load "serial", "ether", etc. module
-CLS_OTG_g_=""
+# Create hotspot(s) using hostapd, instead of including in netplan, eg. for the STA+AP mode example below
+CLS_AP_HOSTAPD=false
+
+# "/" separated list of interfaces to use for the hostapd AP
+CLS_AP_WIFACES="ap@$CLS_WIFACE"
+
+# "/" separated list of names of the respective configs in `hostapd/` for the above interfaces
+CLS_AP_CONFIGS="ap@"
