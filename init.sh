@@ -57,10 +57,7 @@ if ! dpkg -l docker-ce >/dev/null 2>&1; then
     sudo install -m 0755 -d /etc/apt/keyrings
     sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
     sudo chmod a+r /etc/apt/keyrings/docker.asc
-    echo \
-        "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
-        sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+    echo "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 fi
 
 [ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudo mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
@@ -86,11 +83,11 @@ source "lib.sh"
 
 # WIFI being set means that's where the gateway is, and the other args have also been set
 # Ensure the first wifi interface in netplan is the one we want connected to the gateway
-mkdir config
+[ -d config ] || mkdir config
 [ -f config/wifis.json ] || echo "{}" >config/wifis.json
 if [ -n "$WIFI" ]; then
-    ! $PORTAL || jq "(. | select(\"$WIFI\") | .$WIFI) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
-    [[ -n "$PASSWD" || "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI.password=\"$PASSWD\"" netplan/closed.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.$WIFI={}" netplan/closed.yml
+    ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
+    [[ -n "$PASSWD" || "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan/closed.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan/closed.yml
 fi
 
 # Free port 53 on Ubuntu for Pi-hole
@@ -99,7 +96,6 @@ sudo systemctl restart systemd-resolved
 sudo cp -f /run/systemd/resolve/resolv.conf /etc/resolv.conf
 grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf.bak || echo -e "nameserver 1.1.1.1\n$(cat /etc/resolv.conf)" | sudo tee /etc/resolv.conf.bak >/dev/null
 sudo cp -f /etc/resolv.conf /etc/resolv.conf.orig
-sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
 # general performance
 # https://cromwell-intl.com/open-source/performance-tuning/tcp.html
@@ -261,9 +257,6 @@ if [ -n "$CLS_DYN_DNS" ]; then
         ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
     fi
 fi
-
-until ping -c1 1.1.1.1 &>/dev/null; do ((timer++ != 90)) || set_netplan open; done
-set_netplan closed
 
 # Allow for split AP+STA mode
 sudo systemctl stop hostapd &>/dev/null

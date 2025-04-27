@@ -79,6 +79,7 @@ set_netplan() {
     sudo chmod 0600 /etc/netplan/99_config.yaml
     sudo netplan apply
     sudo iw dev "$CLS_WIFACE" set power_save off
+    sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
     local try=0
     until CLS_LOCAL_IP=$(get_local_ip); do ((try++)) && ((try > 60)) && return 1 || sleep 1; done
     [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null

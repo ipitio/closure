@@ -51,6 +51,8 @@ for table in nat filter; do
 done
 
 sudo bash hooks/pre-up.sh ${@@Q}
+until ping -c1 1.1.1.1 &>/dev/null || ((timer++ == 90)); do set_netplan open; done
+sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
 (
     should_check_server_ip
