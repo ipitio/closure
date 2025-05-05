@@ -1,0 +1,66 @@
+<settings version="2">
+    <setting id="idMethod" default="true">0</setting>
+    <setting id="username" default="true" />
+    <setting id="serverName" default="true" />
+    <setting id="server" default="true" />
+    <setting id="sslverify">true</setting>
+    <setting id="deviceNameOpt" default="true">false</setting>
+    <setting id="deviceName" default="true">Kodi</setting>
+    <setting id="kodiCompanion">true</setting>
+    <setting id="syncIndicator">999</setting>
+    <setting id="syncDuringPlay">true</setting>
+    <setting id="dbSyncScreensaver">true</setting>
+    <setting id="useDirectPaths">1</setting>
+    <setting id="limitIndex">15</setting>
+    <setting id="limitThreads">3</setting>
+    <setting id="enableCoverArt">true</setting>
+    <setting id="compressArt" default="true">false</setting>
+    <setting id="maxArtResolution">5</setting>
+    <setting id="enableMusic" default="true">false</setting>
+    <setting id="enableCinema" default="true">false</setting>
+    <setting id="askCinema" default="true">false</setting>
+    <setting id="playFromStream">true</setting>
+    <setting id="playFromTranscode" default="true">false</setting>
+    <setting id="maxBitrate">23</setting>
+    <setting id="enableExternalSubs">true</setting>
+    <setting id="transcodeHi10P" default="true">false</setting>
+    <setting id="transcode_h265" default="true">false</setting>
+    <setting id="transcode_h265_rext" default="true">false</setting>
+    <setting id="transcode_mpeg2" default="true">false</setting>
+    <setting id="transcode_vc1" default="true">false</setting>
+    <setting id="transcode_vp9" default="true">false</setting>
+    <setting id="transcode_av1" default="true">false</setting>
+    <setting id="videoPreferredCodec" default="true">H264/AVC</setting>
+    <setting id="audioPreferredCodec" default="true">AAC</setting>
+    <setting id="audioBitrate">4</setting>
+    <setting id="audioMaxChannels">6</setting>
+    <setting id="skipDialogTranscode">3</setting>
+    <setting id="allowBurnedSubs">true</setting>
+    <setting id="resumeJumpBack">10</setting>
+    <setting id="offerDelete" default="true">false</setting>
+    <setting id="deleteTV" default="true">false</setting>
+    <setting id="deleteMovies" default="true">false</setting>
+    <setting id="markPlayed">90</setting>
+    <setting id="enableContext">true</setting>
+    <setting id="enableContextTranscode">true</setting>
+    <setting id="enableContextDelete">true</setting>
+    <setting id="skipContextMenu" default="true">false</setting>
+    <setting id="additionalUsers" default="true" />
+    <setting id="connectMsg">true</setting>
+    <setting id="offlinetMsg">true</setting>
+    <setting id="restartMsg">true</setting>
+    <setting id="displayMessage">4</setting>
+    <setting id="syncProgress">15</setting>
+    <setting id="newContent" default="true">false</setting>
+    <setting id="newvideotime">5</setting>
+    <setting id="newmusictime">2</setting>
+    <setting id="ignoreSpecialsNextEpisodes" default="true">false</setting>
+    <setting id="getCast" default="true">false</setting>
+    <setting id="remoteControl">true</setting>
+    <setting id="logLevel">1</setting>
+    <setting id="maskInfo">true</setting>
+    <setting id="enableAddon">true</setting>
+    <setting id="startupDelay" default="true">0</setting>
+    <setting id="backupPath" default="true" />
+    <setting id="groupedSets" default="true">true</setting>
+</settings>

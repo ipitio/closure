@@ -5,7 +5,7 @@ this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "lib.sh"
 
-sudo bash hooks/pre-down.sh ${@@Q}
+cast pre-down ${@@Q}
 sudo sysctl -w net.ipv4.ip_forward=0
 sudo sysctl -w net.ipv6.conf.all.forwarding=0
 sudo docker ps | grep -q wireguard && sudo docker compose stop wireguard || sudo wg-quick down "$CLS_INTERN_IFACE"
@@ -30,5 +30,5 @@ for tables in iptables ip6tables; do
     sudo "$tables"-legacy-save | uniq | sudo "$tables"-restore
 done
 
-sudo bash hooks/post-down.sh ${@@Q}
+cast post-down ${@@Q}
 popd || exit

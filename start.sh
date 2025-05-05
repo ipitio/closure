@@ -12,13 +12,12 @@ if $CLS_AP_HOSTAPD; then
     IFS='/' read -r -a wifaces <<<"$CLS_AP_WIFACES"
     IFS='/' read -r -a configs <<<"$CLS_AP_CONFIGS"
     for i in "${!wifaces[@]}"; do wifaces_configs["${wifaces[$i]}"]="${configs[$i]}"; done
-    echo "wifaces_configs: ${wifaces_configs[*]}"
 
     for wiface in "${!wifaces_configs[@]}"; do
         config="${wifaces_configs[$wiface]}"
-        echo "wiface: $wiface, config: $config"
+        [ "$config" != "." ] || config="$wiface"
 
-        if ! iw dev "$wiface" info | grep -q ssid; then
+        if [ -f hostapd/"$config".conf ] && iw dev | grep -zP "Interface $wiface\n" && ! iw dev "$wiface" info | grep -q ssid; then
             # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
             [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "$wiface" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
             [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel=\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
@@ -50,12 +49,12 @@ for table in nat filter; do
     done
 done
 
-sudo bash hooks/pre-up.sh ${@@Q}
+cast pre-up ${@@Q}
 until ping -c1 1.1.1.1 &>/dev/null || ((timer++ == 90)); do set_netplan open; done
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
 (
-    should_check_server_ip
+    CLS_WG_SERVER_IP=$(get_server_ip)
     until ip a show "$CLS_INTERN_IFACE" | grep -q UP; do sleep 1; done
 
     while ip a show "$CLS_INTERN_IFACE" | grep -q UP; do
@@ -71,12 +70,11 @@ sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
             done
         fi
 
-        if should_check_server_ip; then
-            core_ip_now=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
+        if ! is_ip "$SERVERURL"; then
+            core_ip_now=$(get_server_ip)
 
-            # Only ping and break if either DNS failed or IP changed
-            if ! is_ip "$core_ip_now" || (is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ]); then
-                ping -c5 "$CLS_WG_SERVER" >/dev/null || break
+            if ([[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && ! is_ip "$core_ip_now") || (is_ip "$core_ip_now" && is_ip "$CLS_WG_SERVER_IP" && [ "$core_ip_now" != "$CLS_WG_SERVER_IP" ]); then
+                [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && ping -c5 "$CLS_WG_SERVER" >/dev/null || break
             fi
         fi
 
@@ -153,5 +151,5 @@ if sudo docker ps | grep -qE "pihole.*Up" && ! sudo docker exec pihole sh -c "if
     sudo docker compose restart --no-deps pihole
 fi
 
-sudo bash hooks/post-up.sh ${@@Q}
+cast post-up ${@@Q}
 popd || exit

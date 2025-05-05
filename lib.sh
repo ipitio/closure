@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2009,SC2015,SC2034
+# shellcheck disable=SC1091,SC2009,SC2015,SC2034,SC2068
 # Definitions for Closure
 
 set -a
@@ -91,13 +91,61 @@ is_ip() {
     [[ "$1" =~ ^[0-9.]+$ || "$1" =~ ^[0-9a-fA-F:]+$ ]]
 }
 
-should_check_server_ip() {
-    if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && ! is_ip "$SERVERURL"; then
-        is_ip "$CLS_WG_SERVER_IP" || CLS_WG_SERVER_IP=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
-        return 0
+curl() {
+    # if connection times out or max time is reached, wait increasing amounts of time before retrying
+    local i=2
+    local max_attempts=7
+    local wait_time=1
+    local result
+
+    while [ "$i" -lt "$max_attempts" ]; do
+        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
+        [ -n "$result" ] && echo "$result" && return 0
+        sleep "$wait_time"
+        ((i++))
+        ((wait_time *= i))
+    done
+
+    echo ""
+    return 1
+}
+
+direct_domain(){
+    local ichi
+    ichi=$(dig +short "$1")
+    for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE" &>/dev/null; done
+    $2
+    for ip in $ichi; do ! ip r | grep -q "$ip" || sudo ip route del "$ip" &>/dev/null; done
+}
+
+get_server_ip() {
+    local server_ip="$CLS_WG_SERVER_IP"
+
+    if ! is_ip "$server_ip" ; then
+        if ! is_ip "$SERVERURL"; then
+            if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]]; then
+                server_ip=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
+            else
+                local ichi
+                ichi=$(dig +short icanhazip.com)
+                for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE"; done
+                server_ip=$(direct_domain icanhazip.com "curl https://icanhazip.com" | tail -n1)
+                for ip in $ichi; do ! ip r | grep -q "$ip" || sudo ip route del "$ip"; done
+            fi
+        else
+            server_ip="$SERVERURL"
+        fi
     fi
 
-    return 1
+    echo "$server_ip"
+}
+
+cast() {
+    local hook="$1"
+    shift
+    pushd /home/"$CLS_ACTIVE_USER"/ || exit
+    sudo bash hooks/"$hook".sh ${@@Q}
+    popd || exit
 }
 
 set +a

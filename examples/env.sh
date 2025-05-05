@@ -23,7 +23,7 @@ CLS_INTERN_IFACE="wg0"
 # TYPES: hub, spoke, haas, saah
 CLS_TYPE_NODE=""
 
-# DDNS update URL if needed
+# DDNS update URL if needed ("https://...")
 CLS_DYN_DNS=""
 
 # If true, start entire stack in Docker, else only WireGuard on host
@@ -48,4 +48,5 @@ CLS_AP_HOSTAPD=false
 CLS_AP_WIFACES="ap@$CLS_WIFACE"
 
 # "/" separated list of names of the respective configs in `hostapd/` for the above interfaces
+# "." means the same as the interface
 CLS_AP_CONFIGS="ap@"

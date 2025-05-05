@@ -70,24 +70,23 @@ sudo apt autoremove -y
 yq -V | grep -q mikefarah 2>/dev/null || {
     [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
     arch=$(uname -m)
-    [ "$arch" = "x86_64" ] && arch="amd64"
-    [ "$arch" = "aarch64" ] && arch="arm64"
-    [ "$arch" = "armv7l" ] && arch="armhf"
-    [ "$arch" = "armhf" ] && arch="arm"
-    [ "$arch" = "i686" ] && arch="386"
-    [ "$arch" = "i386" ] && arch="386"
+    [ "$arch" = "x86_64" ] && arch="amd64" || :
+    [ "$arch" = "aarch64" ] && arch="arm64" || :
+    [ "$arch" = "armv7l" ] && arch="armhf" || :
+    [ "$arch" = "armhf" ] && arch="arm" || :
+    [[ "$arch" == "i686" || "$arch" == "i386" ]] && arch="386" || :
     sudo curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_"$arch"
     sudo chmod +x /usr/bin/yq
 }
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --noninteractive flathub tv.kodi.Kodi
 source "lib.sh"
 
-# WIFI being set means that's where the gateway is, and the other args have also been set
-# Ensure the first wifi interface in netplan is the one we want connected to the gateway
 [ -d config ] || mkdir config
 [ -f config/wifis.json ] || echo "{}" >config/wifis.json
 if [ -n "$WIFI" ]; then
     ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
-    [[ -n "$PASSWD" || "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan/closed.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan/closed.yml
+    for conf in open closed; do [[ -n "$PASSWD" || "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan/"$conf".yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan/"$conf".yml; done
 fi
 
 # Free port 53 on Ubuntu for Pi-hole
@@ -171,6 +170,7 @@ sudo touch /etc/cloud/cloud-init.disabled
 echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
 sudo rm -f /etc/netplan/50-cloud-init.yaml
 sudo rfkill unblock wlan
+sudo iw reg set PA
 set_netplan closed
 sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
 
@@ -245,10 +245,10 @@ fi
 
 if [ -n "$CLS_DYN_DNS" ]; then
     if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
-        if [ -z "$CLS_EXTERN_IFACE" ] && ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
+        if ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
             (
                 crontab -l 2>/dev/null
-                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/wget --no-check-certificate -O - $CLS_DYN_DNS >> /tmp/ddns.log 2>&1 &"
+                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
             ) | crontab -
         fi
 
@@ -262,4 +262,14 @@ fi
 sudo systemctl stop hostapd &>/dev/null
 sudo systemctl disable hostapd &>/dev/null
 sudo systemctl mask hostapd &>/dev/null
+
+# Kodi
+[ -f /home/"$CLS_ACTIVE_USER"/.kodi/.cls ] || sudo cp -r kodi /home/"$CLS_ACTIVE_USER"/.kodi
+
+# Reinstall if no installed
+[ -f /etc/rc.local ] || echo "#\!/bin/bash" | tr -d '\\' | tee /etc/rc.local >/dev/null
+grep -q closure /etc/rc.local || echo "[ -f $this_dir/installed ] || bash $this_dir/kickstart.sh" | tee -a /etc/rc.local >/dev/null
+chmod +x /etc/rc.local
+touch installed
+
 popd || exit 1
