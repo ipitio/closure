@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# directory where closure is installed
+CLS_PATH="/opt/closure"
+
+# don't change it here
+[ -f /opt/closure/installed ] || bash "$CLS_PATH"/kickstart.sh

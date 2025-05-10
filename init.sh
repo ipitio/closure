@@ -86,7 +86,7 @@ source "lib.sh"
 [ -f config/wifis.json ] || echo "{}" >config/wifis.json
 if [ -n "$WIFI" ]; then
     ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
-    for conf in open closed; do [[ -n "$PASSWD" || "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan/"$conf".yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan/"$conf".yml; done
+    [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
 fi
 
 # Free port 53 on Ubuntu for Pi-hole
@@ -171,7 +171,7 @@ echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-
 sudo rm -f /etc/netplan/50-cloud-init.yaml
 sudo rfkill unblock wlan
 sudo iw reg set PA
-set_netplan closed
+set_netplan "$WIFI"
 sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
 
 set_mac="$(jq ".$(iw dev | grep -zoE "$CLS_WIFACE.*type" | tr '\0' '\n' | grep -oP '(?<=ssid ).+')" config/wifis.json 2>/dev/null | tr -d '"')"
@@ -266,10 +266,6 @@ sudo systemctl mask hostapd &>/dev/null
 # Kodi
 [ -f /home/"$CLS_ACTIVE_USER"/.kodi/.cls ] || sudo cp -r kodi /home/"$CLS_ACTIVE_USER"/.kodi
 
-# Reinstall if no installed
-[ -f /etc/rc.local ] || echo "#\!/bin/bash" | tr -d '\\' | tee /etc/rc.local >/dev/null
-grep -q closure /etc/rc.local || echo "[ -f $this_dir/installed ] || bash $this_dir/kickstart.sh" | tee -a /etc/rc.local >/dev/null
-chmod +x /etc/rc.local
-touch installed
-
+sudo mkdir -p /opt/closure
+sudo touch /opt/closure/installed
 popd || exit 1

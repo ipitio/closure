@@ -6,3 +6,4 @@ this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "lib.sh"
 direct_domain "$(grep -oP '((?<=http:\/\/)|(?<=https:\/\/)).+?[^/?]+' <<<"$CLS_DYN_DNS")" "wget --no-check-certificate -O - $CLS_DYN_DNS >> /tmp/ddns.log 2>&1"
+popd || exit 1

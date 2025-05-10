@@ -62,11 +62,12 @@ get_local_ip() {
 }
 
 CLS_TYPE_NODE=$(echo "$CLS_TYPE_NODE" | tr '[:upper:]' '[:lower:]')
-CLS_LOCAL_IP=$(get_local_ip)
 CLS_WG_SERVER=$(echo "$INTERNAL_SUBNET" | awk 'BEGIN{FS=OFS="."} NF--').1
 CLS_WG_SERVER_IP=""
 
 set_netplan() {
+    [[ "$(md5sum netplan.yml | cut -d' ' -f1 | sudo tee new.netplan.hash)" != "$(cat netplan.hash 2>/dev/null)" || -n "$1" ]] || return 0
+    sudo mv -f new.netplan.hash netplan.hash
     ps -aux | grep -P "^[^-]+hostapd" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
     IFS='/' read -r -a wifaces <<<"$CLS_AP_WIFACES"
 
@@ -75,16 +76,14 @@ set_netplan() {
         [[ ! "$wiface" =~ @ ]] || sudo iw dev "$wiface" del &>/dev/null
     done
 
-    sudo cp -f netplan/"${1:-open}".yml /etc/netplan/99_config.yaml
+    sudo cp -f netplan.yml /etc/netplan/99_config.yaml
     sudo chmod 0600 /etc/netplan/99_config.yaml
     sudo netplan apply
     sudo iw dev "$CLS_WIFACE" set power_save off
     sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
-    local try=0
-    until CLS_LOCAL_IP=$(get_local_ip); do ((try++)) && ((try > 60)) && return 1 || sleep 1; done
+    get_local_ip # set variables
     [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
     [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
-    sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$CLS_LOCAL_IP/" compose.yml
 }
 
 is_ip() {

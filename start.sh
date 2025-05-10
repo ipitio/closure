@@ -17,7 +17,7 @@ if $CLS_AP_HOSTAPD; then
         config="${wifaces_configs[$wiface]}"
         [ "$config" != "." ] || config="$wiface"
 
-        if [ -f hostapd/"$config".conf ] && iw dev | grep -zP "Interface $wiface\n" && ! iw dev "$wiface" info | grep -q ssid; then
+        if [ -f hostapd/"$config".conf ] && iw dev | grep -qzP "Interface $wiface\n" && ! iw dev "$wiface" info | grep -q ssid; then
             # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
             [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "$wiface" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
             [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel=\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
@@ -49,8 +49,8 @@ for table in nat filter; do
     done
 done
 
-cast pre-up ${@@Q}
-until ping -c1 1.1.1.1 &>/dev/null || ((timer++ == 90)); do set_netplan open; done
+eval "cast pre-up ${*@Q}"
+local_ip=$(get_local_ip)
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
 (
@@ -85,7 +85,7 @@ sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
         sleep 5
     done
 
-    exec sudo bash restart.sh ${@@Q}
+    exec sudo bash restart.sh "$@"
 ) &
 
 if $CLS_DOCKER; then
@@ -94,6 +94,7 @@ if $CLS_DOCKER; then
     if ! ip a show "$CLS_INTERN_IFACE" | grep -q UP; then
         sudo systemctl restart docker
         sudo docker network prune -f
+        sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$local_ip/" compose.yml
         sudo docker compose --profile prod up -d --force-recreate --remove-orphans
     elif ! sudo docker ps | grep -qE "wireguard.*Up"; then
         sudo docker compose --profile prod up -d --force-recreate --remove-orphans
@@ -147,9 +148,9 @@ if sudo docker ps | grep -qE "pihole.*Up" && ! sudo docker exec pihole sh -c "if
     sudo docker exec pihole sed -i '/^.*_.*=.*$/!d' /etc/pihole/versions # pihole-updatelists seems to break this
 
     # proxy for dhcphelper
-    sudo docker exec pihole bash -c "echo 'dhcp-option=option:dns-server,$CLS_LOCAL_IP' | tee /etc/dnsmasq.d/99-dns.conf >/dev/null" || :
+    sudo docker exec pihole bash -c "echo 'dhcp-option=option:dns-server,$local_ip' | tee /etc/dnsmasq.d/99-dns.conf >/dev/null" || :
     sudo docker compose restart --no-deps pihole
 fi
 
-cast post-up ${@@Q}
+eval "cast post-up ${*@Q}"
 popd || exit
