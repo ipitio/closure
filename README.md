@@ -57,8 +57,8 @@ To customize iptables, modify the relevant lines in `start.sh` and `stop.sh`.
 
 Set a node up in two or three steps:
 
-1. Move this directory to the target in any way you like. If you install the `deb` package provided in [Releases](https://github.com/ipitio/closure/releases), it will be created as `/opt/closure`.
-2. Edit the files above. If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Now reboot.
+1. Move this directory to the target in any way you like. This is also how you update. If you install the `deb` package provided in [Releases](https://github.com/ipitio/closure/releases), it will be created as `/opt/closure`.
+2. Ensure the target is connected to the internet and edit the files above. If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Now reboot.
 3. On a Hub or HaaS, add a Spoke or SaaH peer by running `add.sh` (as described below). Then, for a SaaH, add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP, and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty. Follow a similar process for a Spoke, if needed.
 
 Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH, then drop it in the Spoke's or SaaH's `wireguard/config/wg_confs` directory before their reboot.

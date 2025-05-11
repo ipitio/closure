@@ -82,13 +82,6 @@ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.f
 flatpak install --noninteractive flathub tv.kodi.Kodi
 source "lib.sh"
 
-[ -d config ] || mkdir config
-[ -f config/wifis.json ] || echo "{}" >config/wifis.json
-if [ -n "$WIFI" ]; then
-    ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/wifis.json
-    [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
-fi
-
 # Free port 53 on Ubuntu for Pi-hole
 sudo sed -i 's/#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
 sudo systemctl restart systemd-resolved
@@ -122,63 +115,6 @@ if grep -q Raspberry /proc/device-tree/model; then
         echo "options brcmfmac roamoff=1 feature_disable=0x202000" | sudo tee /etc/modprobe.d/brcmfmac.conf >/dev/null
         sudo systemctl restart systemd-modules-load
     fi
-fi
-
-# DHCP
-if $CLS_DOCKER; then
-    sudo mkdir -p /etc/docker
-    echo '{
-    "ipv6": true,
-    "fixed-cidr-v6": "2001:db8:1::/64",
-    "userland-proxy": false
-  }' | sudo tee /etc/docker/daemon.json >/dev/null
-    sudo systemctl daemon-reload
-    sudo docker compose build
-    sudo systemctl enable --now docker
-
-    for table in nat filter; do
-        for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
-            sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
-            sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
-        done
-    done
-
-    sudo systemctl stop isc-dhcp-server
-    sudo systemctl restart docker
-    sudo docker network prune -f
-    sudo docker compose up -d --remove-orphans
-else
-    source dhcp/isc-dhcp-server
-
-    if [ -n "$INTERFACESv4" ]; then
-        if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
-            sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
-            sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
-            sudo systemctl restart isc-dhcp-server
-        fi
-
-        sudo systemctl start isc-dhcp-server
-    else
-        sudo systemctl stop isc-dhcp-server
-    fi
-fi
-
-# Configure nm
-sudo systemctl disable isc-dhcp-server
-sudo mkdir -p /etc/cloud/cloud.cfg.d
-sudo touch /etc/cloud/cloud-init.disabled
-echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
-sudo rm -f /etc/netplan/50-cloud-init.yaml
-sudo rfkill unblock wlan
-sudo iw reg set PA
-set_netplan "$WIFI"
-sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
-
-set_mac="$(jq ".$(iw dev | grep -zoE "$CLS_WIFACE.*type" | tr '\0' '\n' | grep -oP '(?<=ssid ).+')" config/wifis.json 2>/dev/null | tr -d '"')"
-if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig | grep -zoE "$CLS_WIFACE:.*ether \S+" | grep -zoE '\S+$' | tr -d '\0')" ]; then
-    sudo ifconfig "$CLS_WIFACE" down
-    sudo macchanger -m "$set_mac" "$CLS_WIFACE"
-    sudo ifconfig "$CLS_WIFACE" up
 fi
 
 # Verbose boot
@@ -240,24 +176,6 @@ else
     echo "grep -qP '\d+' <<<\"\$SSH_CLIENT\" || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
 
-# Prepare DDNS
-(crontab -l 2>/dev/null | grep -Fv "$CLS_DYN_DNS") | crontab -
-
-if [ -n "$CLS_DYN_DNS" ]; then
-    if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
-        if ! crontab -l 2>/dev/null | grep -Fq "ddns.log"; then
-            (
-                crontab -l 2>/dev/null
-                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
-            ) | crontab -
-        fi
-
-        ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-    else
-        ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-    fi
-fi
-
 # Allow for split AP+STA mode
 sudo systemctl stop hostapd &>/dev/null
 sudo systemctl disable hostapd &>/dev/null
@@ -266,6 +184,102 @@ sudo systemctl mask hostapd &>/dev/null
 # Kodi
 [ -f /home/"$CLS_ACTIVE_USER"/.kodi/.cls ] || sudo cp -r kodi /home/"$CLS_ACTIVE_USER"/.kodi
 
+# for rc.local
 sudo mkdir -p /opt/closure
 sudo touch /opt/closure/installed
+
+# DHCP
+if $CLS_DOCKER; then
+    sudo mkdir -p /etc/docker
+    echo '{
+    "ipv6": true,
+    "fixed-cidr-v6": "2001:db8:1::/64",
+    "userland-proxy": false
+  }' | sudo tee /etc/docker/daemon.json >/dev/null
+    sudo systemctl daemon-reload
+    sudo docker compose build
+    sudo systemctl enable --now docker
+
+    for table in nat filter; do
+        for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
+            sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
+            sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
+        done
+    done
+
+    sudo systemctl stop isc-dhcp-server
+    sudo systemctl restart docker
+    sudo docker network prune -f
+    sudo docker compose up -d --remove-orphans
+else
+    source dhcp/isc-dhcp-server
+
+    if [ -n "$INTERFACESv4" ]; then
+        if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
+            sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
+            sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
+            sudo systemctl restart isc-dhcp-server
+        fi
+
+        sudo systemctl start isc-dhcp-server
+    else
+        sudo systemctl stop isc-dhcp-server
+    fi
+fi
+
+# Configure nm
+sudo systemctl disable isc-dhcp-server
+sudo mkdir -p /etc/cloud/cloud.cfg.d
+sudo touch /etc/cloud/cloud-init.disabled
+echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
+sudo rm -f /etc/netplan/50-cloud-init.yaml
+sudo rfkill unblock wlan
+sudo iw reg set PA
+set_netplan "$WIFI"
+sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
+[ -d config ] || sudo mkdir config
+[[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
+
+if [ -n "$WIFI" ]; then
+    ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
+    [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
+    [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
+fi
+
+prepare_ddns() {
+    (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
+
+    if [ -n "$CLS_DYN_DNS" ]; then
+        if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
+            if ! crontab -l 2>/dev/null | grep -Fq "$this_dir/ddns.sh"; then
+                (
+                    crontab -l 2>/dev/null
+                    echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
+                ) | crontab -
+            fi
+
+            ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
+        else
+            ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
+        fi
+    fi
+}
+
+if [ -n "$CLS_WIFACE" ]; then
+    (
+        until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
+        set_mac="$(jq ".$(iwconfig "$CLS_WIFACE" | grep -oP '(?<=ESSID:).+')" config/wifis.json 2>/dev/null | tr -d '"')"
+
+        if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig "$CLS_WIFACE" | grep -oP "(?<=ether )\S+")" ]; then
+            sudo ifconfig "$CLS_WIFACE" down
+            sudo macchanger -m "$set_mac" "$CLS_WIFACE"
+            sudo ifconfig "$CLS_WIFACE" up
+        fi
+
+        prepare_ddns
+    ) &
+else
+    prepare_ddns
+fi
+
 popd || exit 1
