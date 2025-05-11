@@ -246,25 +246,6 @@ if [ -n "$WIFI" ]; then
     [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
 fi
 
-prepare_ddns() {
-    (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
-
-    if [ -n "$CLS_DYN_DNS" ]; then
-        if [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]]; then
-            if ! crontab -l 2>/dev/null | grep -Fq "$this_dir/ddns.sh"; then
-                (
-                    crontab -l 2>/dev/null
-                    echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
-                ) | crontab -
-            fi
-
-            ip a show "$CLS_EXTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-        else
-            ip a show "$CLS_INTERN_IFACE" | grep -q UP || wget --no-check-certificate -O - "$CLS_DYN_DNS"
-        fi
-    fi
-}
-
 if [ -n "$CLS_WIFACE" ]; then
     (
         until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
@@ -275,11 +256,17 @@ if [ -n "$CLS_WIFACE" ]; then
             sudo macchanger -m "$set_mac" "$CLS_WIFACE"
             sudo ifconfig "$CLS_WIFACE" up
         fi
-
-        prepare_ddns
     ) &
-else
-    prepare_ddns
+fi
+
+(crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
+
+if [ -n "$CLS_DYN_DNS" ]; then
+    (
+        crontab -l 2>/dev/null
+        echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
+    ) | crontab -
+    sudo bash ddns.sh &
 fi
 
 popd || exit 1
