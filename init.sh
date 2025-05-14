@@ -243,7 +243,8 @@ sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedeskto
 if [ -n "$WIFI" ]; then
     ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
     [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
-    [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=\"$PASSWD\"" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
+    [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=$(wpa_passphrase "$WIFI" "$PASSWD" | grep -oP '(?<=[^#]psk=).+')" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
+    sudo reboot
 fi
 
 if [ -n "$CLS_WIFACE" ]; then
