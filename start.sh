@@ -6,40 +6,6 @@ pushd "$this_dir" || exit 1
 source "lib.sh"
 pids=$(ps -o ppid=$$)
 ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
-
-if $CLS_AP_HOSTAPD; then
-    declare -A wifaces_configs
-    IFS='/' read -r -a wifaces <<<"$CLS_AP_WIFACES"
-    IFS='/' read -r -a configs <<<"$CLS_AP_CONFIGS"
-    for i in "${!wifaces[@]}"; do wifaces_configs["${wifaces[$i]}"]="${configs[$i]}"; done
-
-    for wiface in "${!wifaces_configs[@]}"; do
-        config="${wifaces_configs[$wiface]}"
-        [ "$config" != "." ] || config="$wiface"
-
-        if [ -f hostapd/"$config".conf ] && iw dev | grep -qzP "Interface $wiface\n" && ! iw dev "$wiface" info | grep -q ssid; then
-            # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
-            [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "$wiface" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
-            [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel=\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
-            sudo sed -i "s/^\(interface=\).*/\1$wiface/" hostapd/"$config".conf
-            sudo chmod 644 hostapd/"$config".conf
-            [[ ! "$wiface" =~ @ ]] || sudo iw dev "$CLS_WIFACE" interface add ap@"$CLS_WIFACE" type __ap
-
-            until iw dev "$wiface" info | grep -q ssid; do
-                echo "Starting hostapd on $wiface"
-                ps -aux | grep -P "^[^-]+hostapd.*$config" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
-                sudo rm -f /var/run/hostapd/"$wiface" &>/dev/null
-                sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
-                sudo iw dev "$wiface" set power_save off
-                sudo ifconfig "$wiface" 10.42.2.1 netmask 255.255.255.0
-                sleep 5
-            done
-        fi
-    done
-fi
-
-source dhcp/isc-dhcp-server
-[ -z "$INTERFACESv4" ] || sudo systemctl restart isc-dhcp-server
 sudo systemctl enable --now docker
 
 for table in nat filter; do
@@ -104,6 +70,7 @@ else
     sudo bash wireguard/etc/run
     sudo mkdir -p /etc/wireguard
     sudo ln -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf /etc/wireguard/"$CLS_INTERN_IFACE".conf
+    sudo wg-quick down "$CLS_INTERN_IFACE"
     sudo wg-quick up "$CLS_INTERN_IFACE"
 fi
 

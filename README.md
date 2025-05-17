@@ -29,7 +29,7 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 ### Configuration
 
-Move everything in `examples/` out to the parent directory. The files to edit are:
+After deploying, move everything in `examples/` out to the parent directory. The files to edit are:
 
 - `dhcp/*dhcp*`: DHCP config, if you want to use the node as a DHCP server but not using Pi-hole
 - `netplan.yml`: network config
@@ -55,10 +55,18 @@ To customize iptables, modify the relevant lines in `start.sh` and `stop.sh`.
 
 ### Deployment
 
-Set a node up in two or three steps:
+Create or update a node in two or three steps:
 
-1. Move this directory to the target in any way you like. This is also how you update. If you install the `deb` package provided in [Releases](https://github.com/ipitio/closure/releases), it will be created as `/opt/closure`.
-2. Ensure the target is connected to the internet and edit the files above. If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Now reboot.
+1. Move this repo to the target or install the [package](https://github.com/ipitio/closure/releases):
+
+```{bash}
+sudo curl -sfLo /etc/apt.trusted.gpg.d/closure-keyring.asc https://ipitio.github.io/closure/gpg.key
+echo "deb https://ipitio.github.io/closure/ master main" | sudo tee /etc/apt/sources.list.d/closure.list
+apt-get update
+sudo apt-get install closure
+```
+
+2. Edit the files above (in `/opt/closure` if you installed the package). If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Ensure the target is connected to the internet and reboot.
 3. On a Hub or HaaS, add a Spoke or SaaH peer by running `add.sh` (as described below). Then, for a SaaH, add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP, and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty. Follow a similar process for a Spoke, if needed.
 
 Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH, then drop it in the Spoke's or SaaH's `wireguard/config/wg_confs` directory before their reboot.

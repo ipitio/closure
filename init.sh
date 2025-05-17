@@ -1,10 +1,11 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2009,SC2015
 
-WIFI="$1"   # string: name, SSID of the wifi to connect to
-PORTAL=$2   # bool: true/false, whether wifi uses a captive portal
-MAC="$3"    # string: MAC address of a device previously connected to the wifi, used if $PORTAL is true
-PASSWD="$4" # string: password of the wifi, if it has one
+WIFI="$(echo "$1" | sed -r "s/^\"(.*)\"$/\1/g")"   # string: name, SSID of the wifi to connect to
+PORTAL=$2                                          # bool: true/false, whether wifi uses a captive portal
+MAC="$(echo "$3" | sed -r "s/^\"(.*)\"$/\1/g")"    # string: MAC address of a device previously connected to the wifi, used if $PORTAL is true
+PASSWD="$(echo "$4" | sed -r "s/^\"(.*)\"$/\1/g")" # string: password of the wifi, if it has one
+ADD=${5:-true}                                     # bool: true/false, whether to add or remove the wifi
 
 sudo() {
     if command -v sudo >/dev/null; then
@@ -211,20 +212,6 @@ if $CLS_DOCKER; then
     sudo systemctl restart docker
     sudo docker network prune -f
     sudo docker compose up -d --remove-orphans
-else
-    source dhcp/isc-dhcp-server
-
-    if [ -n "$INTERFACESv4" ]; then
-        if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
-            sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
-            sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
-            sudo systemctl restart isc-dhcp-server
-        fi
-
-        sudo systemctl start isc-dhcp-server
-    else
-        sudo systemctl stop isc-dhcp-server
-    fi
 fi
 
 # Configure nm
@@ -241,16 +228,26 @@ sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedeskto
 [[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
 
 if [ -n "$WIFI" ]; then
-    ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
-    [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
-    [[ -n "$PASSWD" && "$PASSWD" != "\"\"" ]] && yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"].password=$(wpa_passphrase "$WIFI" "$PASSWD" | grep -oP '(?<=[^#]psk=).+')" netplan.yml || yq -i ".network.wifis.$CLS_WIFACE.access-points.[\"$WIFI\"]={}" netplan.yml
-    sudo reboot
+    WIFI=${WIFI//\"/\\\"}
+
+    if $ADD; then
+        ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
+        [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
+        wpa_ssid=".network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"]"
+        wpa_pass=". = {}"
+        [ -z "$PASSWD" ] || wpa_pass=".password = \"$(wpa_passphrase "$WIFI" "$PASSWD" | grep -oP '(?<=[^#]psk=).+')\""
+        yq -i "with($wpa_ssid; $wpa_pass | key style=\"double\")"
+    else
+        yq -i "del(.network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"])" netplan.yml
+        jq "del(.[\"$WIFI\"])" config/wifis.json | sudo tee config/new.wifis.json
+        [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
+    fi
 fi
 
 if [ -n "$CLS_WIFACE" ]; then
     (
         until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
-        set_mac="$(jq ".$(iwconfig "$CLS_WIFACE" | grep -oP '(?<=ESSID:).+')" config/wifis.json 2>/dev/null | tr -d '"')"
+        set_mac="$(jq ".[\"$(iwconfig "$CLS_WIFACE" | grep -oP '(?<=ESSID:)\S+' | sed -r "s/^\"(.+)\"$/\1/g; s/\"/\\\\\"/g")\"]" config/wifis.json 2>/dev/null | tr -d '"')"
 
         if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig "$CLS_WIFACE" | grep -oP "(?<=ether )\S+")" ]; then
             sudo ifconfig "$CLS_WIFACE" down
