@@ -51,7 +51,7 @@ jobs:
           codename: master
           origin: github.com/ipitio/closure
           signing-key: ${{ secrets.SIGNING_KEY }}
-          architectures: all
+          architectures: amd64 i386 arm64 armhf arm
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
