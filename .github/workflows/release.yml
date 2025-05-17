@@ -45,7 +45,7 @@ jobs:
         uses: morph027/apt-repo-action@main
         id: create-apt-repo
         with:
-          import-from-repo-url: deb https://ipitio.github.io/closure/ master main
+          import-from-repo-url: deb https://ipitio.github.io/closure master main
           import-from-repo-failure-allow: true
           repo-name: closure
           codename: master
@@ -72,12 +72,3 @@ jobs:
       - name: Deploy repo
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Add summary
-        run: |
-          echo ':rocket:' >> $GITHUB_STEP_SUMMARY
-          echo '' >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo 'curl -sfLo /etc/apt.trusted.gpg.d/${{ needs.build.outputs.keyring }}.asc ${{ steps.deployment.outputs.page_url }}gpg.key' >> $GITHUB_STEP_SUMMARY
-          echo 'echo "deb ${{ steps.deployment.outputs.page_url }} master main" >/etc/apt/sources.list.d/closure.list' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY

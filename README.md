@@ -29,7 +29,7 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 ### Configuration
 
-After deploying, move everything in `examples/` out to the parent directory. The files to edit are:
+When deploying (see step 2 below), move everything in `examples/` out to the parent directory. The files to edit are:
 
 - `dhcp/*dhcp*`: DHCP config, if you want to use the node as a DHCP server but not using Pi-hole
 - `netplan.yml`: network config
@@ -60,10 +60,15 @@ Create or update a node in two or three steps:
 1. Move this repo to the target or install the [package](https://github.com/ipitio/closure/releases):
 
 ```{bash}
-sudo curl -sfLo /etc/apt.trusted.gpg.d/closure-keyring.asc https://ipitio.github.io/closure/gpg.key
-echo "deb https://ipitio.github.io/closure/ master main" | sudo tee /etc/apt/sources.list.d/closure.list
-apt-get update
-sudo apt-get install closure
+sudo apt-get update
+sudo apt-get install -yqq wget
+sudo mkdir -m 0755 -p /etc/apt/keyrings/
+wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
+sudo chmod 644 /etc/apt/keyrings/closure.gpg
+echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list
+sudo chmod 644 /etc/apt/sources.list.d/closure.list
+sudo apt-get update
+sudo apt-get install -yqq closure
 ```
 
 2. Edit the files above (in `/opt/closure` if you installed the package). If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Ensure the target is connected to the internet and reboot.
