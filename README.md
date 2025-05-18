@@ -10,8 +10,6 @@
 
 </div>
 
-
-
 Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
 
 You can run WireGuard with Docker or on the host. If you run it with Docker (available for armv7+ and amd64), you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists). In either case, Kodi will be installed with the Jellyfin add-on source, for your convenience. You can also choose between Netplan and hostapd for your access point needs.
@@ -69,7 +67,7 @@ sudo apt-get install -yqq wget
 sudo mkdir -m 0755 -p /etc/apt/keyrings/
 wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
 sudo chmod 644 /etc/apt/keyrings/closure.gpg
-echo "deb https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list
+echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list
 sudo chmod 644 /etc/apt/sources.list.d/closure.list
 sudo apt-get update
 sudo apt-get install -yqq closure
