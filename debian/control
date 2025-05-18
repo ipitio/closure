@@ -6,8 +6,9 @@ Standards-Version: 3.9.2
 Package: closure
 Version: 1.6.2
 Maintainer: ipitio <21136719+ipitio@users.noreply.github.com>
-Depends: containerd.io, curl, docker-ce, docker-ce-cli, docker-buildx-plugin, docker-compose-plugin, flatpak, hostapd, isc-dhcp-server, iw, macchanger, netplan.io, network-manager, net-tools, qrencode, rfkill, wireguard, wireless-tools, wget
-Recommends: build-essential, byobu, dkms, iperf3, nmap, tmux, traceroute, wmctrl
+Depends: curl, flatpak, hostapd, isc-dhcp-server, iw, macchanger, netplan.io, network-manager, net-tools, qrencode, rfkill, wireguard, wireless-tools, wget
+Recommends: containerd.io, docker-ce, docker-ce-cli, docker-buildx-plugin, docker-compose-plugin
+Suggests: build-essential, byobu, dkms, iperf3, nmap, tmux, traceroute, wmctrl
 Copyright: debian/copyright
 Readme: debian/README.Debian
 Links: /usr/share/doc/closure /opt/closure/debian

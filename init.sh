@@ -18,7 +18,7 @@ sudo() {
 apt_install() {
     if ! dpkg -l "$@" >/dev/null 2>&1; then
         sudo apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq "$@"
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq "$@"
     fi
 }
 
@@ -66,7 +66,7 @@ sudo systemctl disable --now whoopsie.path &>/dev/null
 sudo systemctl mask whoopsie.path &>/dev/null
 sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
 # shellcheck disable=SC2046
-apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )).*' debian/control | tr -d ',' | tr '\n' ' ')
+apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )|(?<=^Suggests: )).*' debian/control | tr -d ',' | tr '\n' ' ')
 sudo apt autoremove -y
 yq -V | grep -q mikefarah 2>/dev/null || {
     [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
