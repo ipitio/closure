@@ -9,7 +9,7 @@ ADD=${5:-true}                                     # bool: true/false, whether t
 
 sudo() {
     if command -v sudo >/dev/null; then
-        command sudo "$@"
+        command sudo "$@" || "$@"
     else
         "$@"
     fi
@@ -68,7 +68,7 @@ sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
 # shellcheck disable=SC2046
 apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )|(?<=^Suggests: )).*' debian/control | tr -d ',' | tr '\n' ' ')
 sudo apt autoremove -y
-yq -V | grep -q mikefarah 2>/dev/null || {
+yq -V | grep -q mikefarah &>/dev/null || {
     [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
     arch=$(uname -m)
     [ "$arch" = "x86_64" ] && arch="amd64" || :
