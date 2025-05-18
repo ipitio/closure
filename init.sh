@@ -1,12 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2009,SC2015
 
-WIFI="$(echo "$1" | sed -r "s/^\"(.*)\"$/\1/g")"   # string: name, SSID of the wifi to connect to
-PORTAL=$2                                          # bool: true/false, whether wifi uses a captive portal
-MAC="$(echo "$3" | sed -r "s/^\"(.*)\"$/\1/g")"    # string: MAC address of a device previously connected to the wifi, used if $PORTAL is true
-PASSWD="$(echo "$4" | sed -r "s/^\"(.*)\"$/\1/g")" # string: password of the wifi, if it has one
-ADD=${5:-true}                                     # bool: true/false, whether to add or remove the wifi
-
 sudo() {
     if command -v sudo >/dev/null; then
         command sudo "$@" || "$@"
@@ -156,10 +150,10 @@ sudo sed -i "s,script_path=.*$,script_path=$PWD," kickstart.sh
 active_path=/home/"$CLS_ACTIVE_USER"/.closure/kickstart.sh
 allow_active="$CLS_ACTIVE_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$active_path"
 allow_script="$CLS_SCRIPT_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$PWD/*"
-sudo chown "$CLS_SCRIPT_USER":"$CLS_SCRIPT_USER" restart.sh
-sudo chmod +x restart.sh
+sudo chown "$CLS_SCRIPT_USER":"$CLS_SCRIPT_USER" kickstart.sh
+sudo chmod +x kickstart.sh
 sudo mkdir -p "$(dirname "$active_path")"
-sudo cp -f restart.sh "$active_path"
+sudo cp -f kickstart.sh "$active_path"
 sudo grep -q "$allow_active" /etc/sudoers || echo "$allow_active" | sudo EDITOR='tee -a' visudo
 sudo grep -q "$allow_script" /etc/sudoers || echo "$allow_script" | sudo EDITOR='tee -a' visudo
 
@@ -224,43 +218,4 @@ sudo rfkill unblock wlan
 sudo iw reg set PA
 [ -d config ] || sudo mkdir config
 [[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
-
-if [ -n "$WIFI" ]; then
-    WIFI=${WIFI//\"/\\\"}
-
-    if $ADD; then
-        ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
-        [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
-        wpa_ssid=".network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"]"
-        wpa_pass=". = {}"
-        [ -z "$PASSWD" ] || wpa_pass=".password = \"$(wpa_passphrase "$WIFI" "$PASSWD" | grep -oP '(?<=[^#]psk=).+')\""
-        yq -i "with($wpa_ssid; $wpa_pass | key style=\"double\")"
-    else
-        yq -i "del(.network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"])" netplan.yml
-        jq "del(.[\"$WIFI\"])" config/wifis.json | sudo tee config/new.wifis.json
-        [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
-    fi
-fi
-
-sudo cp -f netplan.yml /etc/netplan/99_config.yaml
-sudo chmod 0600 /etc/netplan/99_config.yaml
-stop_hostapd
-sudo netplan apply
-start_hostapd
-sudo iw dev "$CLS_WIFACE" set power_save off
-sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
-get_local_ip # set variables
-[ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
-[ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
-sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
-(crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
-
-if [ -n "$CLS_DYN_DNS" ]; then
-    (
-        crontab -l 2>/dev/null
-        echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
-    ) | crontab -
-    sudo bash ddns.sh &
-fi
-
 popd || exit 1

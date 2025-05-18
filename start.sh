@@ -1,19 +1,66 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2009,SC2015,SC2068
 
+WIFI="$(echo "$1" | sed -r "s/^\"(.*)\"$/\1/g")"   # string: name, SSID of the wifi to connect to
+PORTAL=$2                                          # bool: true/false, whether wifi uses a captive portal
+MAC="$(echo "$3" | sed -r "s/^\"(.*)\"$/\1/g")"    # string: MAC address of a device previously connected to the wifi, used if $PORTAL is true
+PASSWD="$(echo "$4" | sed -r "s/^\"(.*)\"$/\1/g")" # string: password of the wifi, if it has one
+ADD=${5:-true}                                     # bool: true/false, whether to add or remove the wifi
+
 this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "lib.sh"
 pids=$(ps -o ppid=$$)
 ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
-sudo systemctl enable --now docker
 
-for table in nat filter; do
-    for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
-        sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
-        sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
+if [ -n "$WIFI" ]; then
+    WIFI=${WIFI//\"/\\\"}
+
+    if $ADD; then
+        ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
+        [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
+        wpa_ssid=".network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"]"
+        wpa_pass=". = {}"
+        [ -z "$PASSWD" ] || wpa_pass=".password = \"$(wpa_passphrase "$WIFI" "$PASSWD" | grep -oP '(?<=[^#]psk=).+')\""
+        yq -i "with($wpa_ssid; $wpa_pass | key style=\"double\")"
+    else
+        yq -i "del(.network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"])" netplan.yml
+        jq "del(.[\"$WIFI\"])" config/wifis.json | sudo tee config/new.wifis.json
+        [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
+    fi
+fi
+
+sudo cp -f netplan.yml /etc/netplan/99_config.yaml
+sudo chmod 0600 /etc/netplan/99_config.yaml
+stop_hostapd
+sudo netplan apply
+start_hostapd
+sudo iw dev "$CLS_WIFACE" set power_save off
+sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
+get_local_ip # set variables
+[ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
+[ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
+sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
+(crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
+
+if [ -n "$CLS_DYN_DNS" ]; then
+    (
+        crontab -l 2>/dev/null
+        echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
+    ) | crontab -
+    sudo bash ddns.sh &
+fi
+
+if $CLS_DOCKER; then
+    sudo systemctl enable --now docker
+
+    for table in nat filter; do
+        for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
+            sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
+            sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
+        done
     done
-done
+fi
 
 eval "cast pre-up ${*@Q}"
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf

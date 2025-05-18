@@ -12,7 +12,7 @@ sudo docker ps | grep -q wireguard && sudo docker compose stop wireguard || sudo
 sudo docker ps | grep -qE "pihole.*Up" || sudo cp -f /etc/resolv.conf.orig /etc/resolv.conf
 
 # shellcheck disable=SC2009
-ps -aux | grep -P "^[^-]+$this_dir/(init|start).sh" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
+ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
 
 route -n | grep -P "$(ip r | grep -oP 'default via \K\S+')\s+255\.255\.255\.255" | awk '{print $1}' | while read -r endpoint; do
     sudo route del -net "$endpoint" netmask 255.255.255.255 gw "$(ip r | grep -oP 'default via \K\S+')" &>/dev/null

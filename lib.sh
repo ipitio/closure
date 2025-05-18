@@ -87,7 +87,7 @@ stop_hostapd() {
     ps -aux | grep -P "^[^-]+hostapd$2" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
 
     for wiface in $aps; do
-        [ "$1" != "${wiface//*@/}" ] || continue
+        [[ -z "$1" || "$1" == "${wiface//*@/}" ]] || continue
         sudo rm -rf /var/run/hostapd/"$wiface" &>/dev/null
         [[ ! "$wiface" =~ @ ]] || sudo iw dev "$wiface" del &>/dev/null
     done
@@ -124,17 +124,17 @@ start_hostapd() {
             [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel\s*=\s*\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
             sudo sed -i "s/^\(interface\s*=\s*\).*/\1$wiface/" hostapd/"$config".conf
             sudo chmod 644 hostapd/"$config".conf
-            [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
 
             (
-                while [ -n "$wiface" ]; do
+                while :; do
                     while iw dev "$wiface" info | grep -q ssid; do sleep 5; done
                     until iw dev "$wiface" info | grep -q ssid; do
                         echo "Starting hostapd on $wiface"
                         stop_hostapd "$wiface" ".*$config"
+                        [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
                         sudo iw dev "$wiface" set power_save off
-                        sudo ifconfig "$wiface" 10.42.2.1 netmask 255.255.255.0
+                        sudo ifconfig "$wiface" 10.42.1.$((1 + $( (ifconfig | grep -oP '(?<=10\.42\.1\.)\S+'; echo 1) | grep -v 255 | sort -ru | head -n1))) netmask 255.255.255.0
                         restart_isc
                         sleep 15
                     done
