@@ -45,14 +45,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y equivs
           equivs-build debian/control
-          mv closure*.deb closure.deb
           echo -e "built=$?\ntag=$(grep -oP '(?<=^Version: ).*' debian/control)\nmessage=$(git log -1 --pretty=%B)\n" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         if: ${{ steps.build.outputs.built == '0' }}
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "closure.deb"
+          artifacts: "*.deb"
           body: ${{ steps.build.outputs.message }}
           tag: "v${{ steps.build.outputs.tag }}"
           commit: "master"
@@ -62,7 +61,7 @@ jobs:
         uses: morph027/apt-repo-action@main
         id: create-apt-repo
         with:
-          #import-from-repo-url: deb https://ipitio.github.io/closure master main
+          import-from-repo-url: deb https://ipitio.github.io/closure master main
           import-from-repo-failure-allow: true
           repo-name: closure
           codename: master
