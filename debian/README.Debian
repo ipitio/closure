@@ -2,5 +2,5 @@ closure for Debian
 
 Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
 
-You can run the entire stack as Docker services or just WireGuard on the host.
+You can run WireGuard with Docker services or on the host.
 If you run it with Docker, you'll also get Unbound and Pi-hole v5.

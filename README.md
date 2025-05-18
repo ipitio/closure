@@ -10,7 +10,7 @@
 
 Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
 
-You can run the entire stack as Docker services or just WireGuard on the host. If you run it with Docker (available for armv7+ and amd64), you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists). In either case, Kodi will be installed with the Jellyfin add-on source, for your convenience; you can replace the rest of `userdata` with your own.
+You can run WireGuard with Docker or on the host. If you run it with Docker (available for armv7+ and amd64), you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists). In either case, Kodi will be installed with the Jellyfin add-on source, for your convenience. You can also choose between Netplan and hostapd for your access point needs.
 
 ## Getting Started
 
@@ -31,8 +31,8 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 When deploying (see step 2 below), move everything in `examples/` out to the parent directory. The files to edit are:
 
-- `dhcp/*dhcp*`: DHCP config, if you want to use the node as a DHCP server but not using Pi-hole
-- `netplan.yml`: network config
+- `dhcp/*dhcp*`: DHCP config, if you want to use the node as a DHCP server without Pi-hole
+- `netplan.yml`: primary network config
 - `env.sh`: environment variables for the scripts
 - `compose.yml`: environment variables for the services and bare WireGuard
 - `hooks/{pre,post}-{up,down}.sh`: scripts that run from the active user's home directory before and after everything is started or stopped

@@ -16,16 +16,19 @@ for table in nat filter; do
 done
 
 eval "cast pre-up ${*@Q}"
-local_ip=$(get_local_ip)
 sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
 
 (
     CLS_WG_SERVER_IP=$(get_server_ip)
-    until ip a show "$CLS_INTERN_IFACE" | grep -q UP; do sleep 1; done
+    until ip a show "$CLS_INTERN_IFACE" | grep -q UP; do get_local_ip; sleep 1; done
+    sudo sysctl -w net.ipv4.ip_forward=1
+    sudo sysctl -w net.ipv6.conf.all.forwarding=1
 
     while ip a show "$CLS_INTERN_IFACE" | grep -q UP; do
+        get_local_ip
+
         if ! ip rule show table 7 2>/dev/null | grep -qP '0x55' || ! ip route show table 7 2>/dev/null | grep -q default; then
-            ip route show table 7 2>/dev/null | grep -q default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IFACE" table 7
+            ip route show table 7 2>/dev/null | grep -q default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IFACE" table 7 &>/dev/null
             ip rule show table 7 2>/dev/null | grep -qP '0x55' || sudo ip rule add fwmark 0x55 table 7 &>/dev/null
             sudo ip route flush cache
         fi
@@ -60,7 +63,8 @@ if $CLS_DOCKER; then
     if ! ip a show "$CLS_INTERN_IFACE" | grep -q UP; then
         sudo systemctl restart docker
         sudo docker network prune -f
-        sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$local_ip/" compose.yml
+        until [ -n "$CLS_LOCAL_IP" ]; do sleep 1; done
+        sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$CLS_LOCAL_IP/" compose.yml
         sudo docker compose --profile prod up -d --force-recreate --remove-orphans
     elif ! sudo docker ps | grep -qE "wireguard.*Up"; then
         sudo docker compose --profile prod up -d --force-recreate --remove-orphans
@@ -70,13 +74,8 @@ else
     sudo bash wireguard/etc/run
     sudo mkdir -p /etc/wireguard
     sudo ln -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf /etc/wireguard/"$CLS_INTERN_IFACE".conf
-    sudo wg-quick down "$CLS_INTERN_IFACE"
     sudo wg-quick up "$CLS_INTERN_IFACE"
 fi
-
-# Lower the drawbridges
-sudo sysctl -w net.ipv4.ip_forward=1
-sudo sysctl -w net.ipv6.conf.all.forwarding=1
 
 for tables in iptables ip6tables; do
     sudo "$tables" -I FORWARD -i "$CLS_INTERN_IFACE" -j ACCEPT &>/dev/null

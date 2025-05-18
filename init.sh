@@ -93,7 +93,7 @@ sudo cp -f /etc/resolv.conf /etc/resolv.conf.orig
 # general performance
 # https://cromwell-intl.com/open-source/performance-tuning/tcp.html
 while IFS= read -r line; do
-    grep -qP "^#?.*$(echo "$line" | cut -d= -f1) ?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^#\?.*$(echo "$line" | cut -d= -f1) \?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf >/dev/null
+    grep -qP "^#?\s*?$(echo "$line" | cut -d= -f1)\s*?=.*$" /etc/sysctl.conf && sudo sed -r -i "s/^#?\s*?$(echo "$line" | cut -d= -f1)\s*?=.*$/$line/g" /etc/sysctl.conf || echo "$line" | sudo tee -a /etc/sysctl.conf >/dev/null
 done <sysctl.conf
 grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf >/dev/null
 sudo sysctl -p
@@ -156,10 +156,10 @@ sudo sed -i "s,script_path=.*$,script_path=$PWD," kickstart.sh
 active_path=/home/"$CLS_ACTIVE_USER"/.closure/kickstart.sh
 allow_active="$CLS_ACTIVE_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$active_path"
 allow_script="$CLS_SCRIPT_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$PWD/*"
-sudo chown "$CLS_SCRIPT_USER":"$CLS_SCRIPT_USER" kickstart.sh
-sudo chmod +x kickstart.sh
+sudo chown "$CLS_SCRIPT_USER":"$CLS_SCRIPT_USER" restart.sh
+sudo chmod +x restart.sh
 sudo mkdir -p "$(dirname "$active_path")"
-sudo cp -f kickstart.sh "$active_path"
+sudo cp -f restart.sh "$active_path"
 sudo grep -q "$allow_active" /etc/sudoers || echo "$allow_active" | sudo EDITOR='tee -a' visudo
 sudo grep -q "$allow_script" /etc/sudoers || echo "$allow_script" | sudo EDITOR='tee -a' visudo
 
@@ -222,8 +222,6 @@ echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-
 sudo rm -f /etc/netplan/50-cloud-init.yaml
 sudo rfkill unblock wlan
 sudo iw reg set PA
-set_netplan "$WIFI"
-sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
 [ -d config ] || sudo mkdir config
 [[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
 
@@ -244,19 +242,17 @@ if [ -n "$WIFI" ]; then
     fi
 fi
 
-if [ -n "$CLS_WIFACE" ]; then
-    (
-        until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
-        set_mac="$(jq ".[\"$(iwconfig "$CLS_WIFACE" | grep -oP '(?<=ESSID:)\S+' | sed -r "s/^\"(.+)\"$/\1/g; s/\"/\\\\\"/g")\"]" config/wifis.json 2>/dev/null | tr -d '"')"
-
-        if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig "$CLS_WIFACE" | grep -oP "(?<=ether )\S+")" ]; then
-            sudo ifconfig "$CLS_WIFACE" down
-            sudo macchanger -m "$set_mac" "$CLS_WIFACE"
-            sudo ifconfig "$CLS_WIFACE" up
-        fi
-    ) &
-fi
-
+sudo cp -f netplan.yml /etc/netplan/99_config.yaml
+sudo chmod 0600 /etc/netplan/99_config.yaml
+stop_hostapd
+sudo netplan apply
+start_hostapd
+sudo iw dev "$CLS_WIFACE" set power_save off
+sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
+get_local_ip # set variables
+[ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
+[ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
+sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
 (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
 
 if [ -n "$CLS_DYN_DNS" ]; then

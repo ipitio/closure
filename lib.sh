@@ -5,7 +5,8 @@
 set -a
 
 # Closure settings from env.sh
-source "$(dirname "$(readlink -f "$0")")/env.sh"
+this_dir=$(dirname "$(readlink -f "$0")")
+source "$this_dir/env.sh"
 
 if [ -z "$CLS_TYPE_NODE" ]; then
     echo "Node type is not set"
@@ -32,6 +33,7 @@ CLS_TYPE_NODE=$(echo "$CLS_TYPE_NODE" | tr '[:upper:]' '[:lower:]')
 CLS_WG_SERVER=$(echo "$INTERNAL_SUBNET" | awk 'BEGIN{FS=OFS="."} NF--').1
 CLS_WG_SERVER_IP=""
 CLS_LOCAL_IFACE=""
+CLS_LOCAL_IP=""
 CLS_GATEWAY=""
 
 user_exists() { id "$1" &>/dev/null; }
@@ -61,48 +63,53 @@ get_local_ip() {
     [ -n "$CLS_LOCAL_IFACE" ] || return 1
     ip r | grep -q '^default via' || sudo ip r add default via "$(nmcli dev show "$CLS_LOCAL_IFACE" | grep -oP '((?<=GATEWAY:)[^-]*|/0.*?= [^,]+)' | grep -oE '[^ ]+$' | head -n1)" dev "$CLS_LOCAL_IFACE" &>/dev/null
     CLS_GATEWAY=$(ip r | grep -oP '^default via \K\S+')
-    ip a show "$CLS_LOCAL_IFACE" | grep -oP 'inet \K\S+' | cut -d/ -f1
+    CLS_LOCAL_IP=$(ip a show "$CLS_LOCAL_IFACE" | grep -oP 'inet \K\S+' | cut -d/ -f1)
 }
 
-restart_isc(){
-    if $CLS_DOCKER; then
-        source dhcp/isc-dhcp-server
+restart_isc() {
+    source dhcp/isc-dhcp-server
 
-        if [ -n "$INTERFACESv4" ]; then
-            if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
-                sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
-                sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
-            fi
-
-            sudo systemctl restart isc-dhcp-server
-        else
-            sudo systemctl stop isc-dhcp-server
+    if [ -n "$INTERFACESv4" ]; then
+        if ! diff -q dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf &>/dev/null || ! diff -q dhcp/isc-dhcp-server /etc/default/isc-dhcp-server &>/dev/null; then
+            sudo cp -f dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf
+            sudo cp -f dhcp/isc-dhcp-server /etc/default/isc-dhcp-server
         fi
+
+        sudo systemctl restart isc-dhcp-server &
+    else
+        sudo systemctl stop isc-dhcp-server &
     fi
 }
 
-set_netplan() {
+stop_hostapd() {
     local aps
     aps=$(sudo find /var/run/hostapd -type s | grep -oP '(?<=/var/run/hostapd/).+')
-    ps -aux | grep -P "^[^-]+hostapd" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
+    ps -aux | grep -P "^[^-]+hostapd$2" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
 
     for wiface in $aps; do
+        [ "$1" != "${wiface//*@/}" ] || continue
         sudo rm -rf /var/run/hostapd/"$wiface" &>/dev/null
         [[ ! "$wiface" =~ @ ]] || sudo iw dev "$wiface" del &>/dev/null
     done
+}
 
-    [[ "$(md5sum netplan.yml | cut -d' ' -f1 | sudo tee new.netplan.hash)" != "$(cat netplan.hash 2>/dev/null)" || -n "$1" ]] || return 0
-    sudo mv -f new.netplan.hash netplan.hash
-    sudo cp -f netplan.yml /etc/netplan/99_config.yaml
-    sudo chmod 0600 /etc/netplan/99_config.yaml
-    sudo netplan apply
-    sudo iw dev "$CLS_WIFACE" set power_save off
-    sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
-    get_local_ip # set variables
-    [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
-    [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
+start_hostapd() {
+    if [ -n "$CLS_WIFACE" ]; then
+        (
+            until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
+            set_mac="$(jq ".[\"$(iwconfig "$CLS_WIFACE" | grep -oP '(?<=ESSID:)\S+' | sed -r "s/^\"(.+)\"$/\1/g; s/\"/\\\\\"/g")\"]" config/wifis.json 2>/dev/null | tr -d '"')"
 
-    if $CLS_AP_HOSTAPD; then
+            if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig "$CLS_WIFACE" | grep -oP "(?<=ether )\S+")" ]; then
+                sudo ifconfig "$CLS_WIFACE" down
+                sudo macchanger -m "$set_mac" "$CLS_WIFACE"
+                sudo ifconfig "$CLS_WIFACE" up
+            fi
+        ) &
+    fi
+
+    if ! $CLS_AP_HOSTAPD; then
+        restart_isc
+    else
         declare -A wifaces_configs
         IFS='/' read -r -a wifaces <<<"$CLS_AP_WIFACES"
         IFS='/' read -r -a configs <<<"$CLS_AP_CONFIGS"
@@ -111,31 +118,29 @@ set_netplan() {
         for wiface in "${!wifaces_configs[@]}"; do
             config="${wifaces_configs[$wiface]}"
             [ "$config" != "." ] || config="$wiface"
+            [ -f hostapd/"$config".conf ] && ! yq '(.network.wifis | keys)[]' netplan.yml | grep -qFx "$wiface" && iw dev | grep -qzP "Interface ${wiface//*@/}\n" && ! iw dev "$wiface" info | grep -q ssid || continue
+            # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
+            [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
+            [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel\s*=\s*\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
+            sudo sed -i "s/^\(interface\s*=\s*\).*/\1$wiface/" hostapd/"$config".conf
+            sudo chmod 644 hostapd/"$config".conf
+            [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
 
-            if [ -f hostapd/"$config".conf ] && ! yq '(.network.wifis | keys)[]' netplan.yml | grep -qFx "$wiface" && iw dev | grep -qzP "Interface ${wiface//*@/}\n" && ! iw dev "$wiface" info | grep -q ssid; then
-                # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
-                [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
-                [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel\s*=\s*\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
-                sudo sed -i "s/^\(interface\s*=\s*\).*/\1$wiface/" hostapd/"$config".conf
-                sudo chmod 644 hostapd/"$config".conf
-                [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//@*/}" interface add "$wiface" type __ap
-
-                (
+            (
+                while [ -n "$wiface" ]; do
+                    while iw dev "$wiface" info | grep -q ssid; do sleep 5; done
                     until iw dev "$wiface" info | grep -q ssid; do
                         echo "Starting hostapd on $wiface"
-                        ps -aux | grep -P "^[^-]+hostapd.*$config" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
-                        sudo rm -f /var/run/hostapd/"$wiface" &>/dev/null
+                        stop_hostapd "$wiface" ".*$config"
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
                         sudo iw dev "$wiface" set power_save off
                         sudo ifconfig "$wiface" 10.42.2.1 netmask 255.255.255.0
                         restart_isc
-                        sleep 10
+                        sleep 15
                     done
-                ) &
-            fi
+                done
+            ) &
         done
-    else
-        restart_isc
     fi
 }
 
@@ -162,7 +167,7 @@ curl() {
     return 1
 }
 
-direct_domain(){
+direct_domain() {
     local ichi
     ichi=$(dig +short "$1")
     for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE" &>/dev/null; done
@@ -173,7 +178,7 @@ direct_domain(){
 get_server_ip() {
     local server_ip="$CLS_WG_SERVER_IP"
 
-    if ! is_ip "$server_ip" ; then
+    if ! is_ip "$server_ip"; then
         if ! is_ip "$SERVERURL"; then
             if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]]; then
                 server_ip=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
@@ -196,7 +201,7 @@ cast() {
     local hook="$1"
     shift
     pushd /home/"$CLS_ACTIVE_USER"/ || exit
-    sudo bash hooks/"$hook".sh ${@@Q}
+    sudo bash "$this_dir/hooks/$hook.sh" ${@@Q}
     popd || exit
 }
 
