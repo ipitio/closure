@@ -31,7 +31,7 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 ### Configuration
 
-For step 2 below, move everything in `examples/` out to the parent directory. The files to edit are:
+When completing step 2 below, move everything in `examples/` out to the parent directory. The files to edit are:
 
 - `dhcp/*dhcp*`: DHCP config, if you want to use the node as a DHCP server without Pi-hole
 - `netplan.yml`: primary network config
