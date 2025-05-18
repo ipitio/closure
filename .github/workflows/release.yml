@@ -45,7 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y equivs
           equivs-build debian/control
-          cp closure*.deb closure.deb
+          mv closure*.deb closure.deb
           echo -e "built=$?\ntag=$(grep -oP '(?<=^Version: ).*' debian/control)\nmessage=$(git log -1 --pretty=%B)\n" >> "$GITHUB_OUTPUT"
 
       - name: Create release
