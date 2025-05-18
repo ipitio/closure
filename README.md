@@ -63,14 +63,14 @@ Create or update a node in two or three steps:
 
 ```{bash}
 sudo apt-get update
-sudo apt-get install -yqq wget
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gpg wget
 sudo mkdir -m 0755 -p /etc/apt/keyrings/
 wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
 sudo chmod 644 /etc/apt/keyrings/closure.gpg
 echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list
 sudo chmod 644 /etc/apt/sources.list.d/closure.list
 sudo apt-get update
-sudo apt-get install -yqq closure
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq closure
 ```
 
 2. Edit the files above (in `/opt/closure` if you installed the package). If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Ensure the target is connected to the internet and reboot.
