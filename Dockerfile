@@ -1,4 +1,5 @@
 FROM ubuntu:latest
+USER root
 RUN apt-get update ;\
     DEBIAN_FRONTEND=noninteractive apt-get -o APT::Get::AllowUnauthenticated=true install -y gpg wget ;\
     mkdir -m 0755 -p /etc/apt/keyrings/ ;\
