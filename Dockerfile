@@ -9,4 +9,4 @@ RUN apt-get update ;\
     apt-get update ;\
     DEBIAN_FRONTEND=noninteractive apt-get -o APT::Get::AllowUnauthenticated=true install --no-install-recommends -y closure
 WORKDIR /opt/closure
-RUN mv examples/* . ; bash init.sh &>/dev/null
+RUN mv examples/* . ; bash init.sh
