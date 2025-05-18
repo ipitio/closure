@@ -31,4 +31,5 @@ for tables in iptables ip6tables; do
 done
 
 eval "cast post-down ${*@Q}"
+bash start.sh ${@@Q}
 popd || exit

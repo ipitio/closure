@@ -33,6 +33,8 @@ fi
 sudo cp -f netplan.yml /etc/netplan/99_config.yaml
 sudo chmod 0600 /etc/netplan/99_config.yaml
 stop_hostapd
+sudo sed -i '/# subnets for hostapd/,$d' dhcp/dhcpd.conf
+echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
 sudo netplan apply
 start_hostapd
 sudo iw dev "$CLS_WIFACE" set power_save off
@@ -60,6 +62,8 @@ if $CLS_DOCKER; then
             sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
         done
     done
+else
+    sudo wg-quick down "$CLS_INTERN_IFACE"
 fi
 
 eval "cast pre-up ${*@Q}"
@@ -101,7 +105,7 @@ sudo cp -f /etc/resolv.conf.bak /etc/resolv.conf
         sleep 5
     done
 
-    exec sudo bash restart.sh "$@"
+    exec sudo bash restart.sh ${@@Q}
 ) &
 
 if $CLS_DOCKER; then

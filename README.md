@@ -6,7 +6,7 @@
 
 ---
 
-[![build](https://github.com/ipitio/closure/actions/workflows/release.yml/badge.svg)](https://github.com/ipitio/closure/pkgs/container/closure)
+[![build](https://github.com/ipitio/closure/actions/workflows/release.yml/badge.svg)](https://github.com/ipitio/closure/releases/latest)
 
 </div>
 
@@ -16,7 +16,7 @@ You can run WireGuard with Docker or on the host. If you run it with Docker (ava
 
 ## Getting Started
 
-Just edit some variables and go!
+Install. Configure. Reboot.
 
 ### Definitions
 
@@ -47,19 +47,17 @@ Keep in mind that:
 - To configure Pi-hole more extensively, such as by enabling DHCP, see the [Pi-hole documentation](https://github.com/pi-hole/docker-pi-hole/tree/2024.07.0?tab=readme-ov-file#environment-variables).
 - The hooks may be useful, for example, if you'd like to coordinate with an external, outbound VPN on a Hub or SaaH. All arguments given to `start.sh`and `stop.sh` are passed to their respective hooks.
 
-To customize iptables, modify the relevant lines in `start.sh` and `stop.sh`.
-
-> [!WARNING]
+> [!NOTE]
 > The WireGuard service in the Compose file must be configured whether or not you'll use Docker ([docs](https://docs.linuxserver.io/images/docker-wireguard)).
 
-> [!CAUTION]
+> [!WARNING]
 > If a user you specify in `env.sh` doesn't exist, it will be created. By default, the password will be the same as the username; change it!
 
 ### Deployment
 
 Create or update a node in two or three steps:
 
-1. Move this repo to the target or install the [package](https://github.com/ipitio/closure/releases):
+1. Either install the [package](https://github.com/ipitio/closure/releases) directly...
 
 ```{bash}
 sudo apt-get update
@@ -67,19 +65,21 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gpg wget
 sudo mkdir -m 0755 -p /etc/apt/keyrings/
 wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
 sudo chmod 644 /etc/apt/keyrings/closure.gpg
-echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list
+echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list &>/dev/null
 sudo chmod 644 /etc/apt/sources.list.d/closure.list
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -qq closure
 ```
 
-2. Edit the files above (in `/opt/closure` if you installed the package). If you didn't install the package, change the path in `rc.local` and move it to `/etc`. Ensure the target is connected to the internet and reboot.
-3. On a Hub or HaaS, add a Spoke or SaaH peer by running `add.sh` (as described below). Then, for a SaaH, add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP, and run `sudo kickstart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty. Follow a similar process for a Spoke, if needed.
+...Or copy this repo to `/opt/closure` on the target. Then verify the path inside `rc.local`, make it executable, and move it to `/etc`. The package will be installed after the next step.
+
+2. Edit the files above and reboot. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster.
+3. On a Hub or HaaS, add a Spoke or SaaH peer by running `add.sh` (as described below). Then, for a SaaH, add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP, and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty. Follow a similar process for a Spoke, if needed.
 
 Set a Hub or HaaS up first, so you can generate the necessary peer configuration for a Spoke or SaaH, then drop it in the Spoke's or SaaH's `wireguard/config/wg_confs` directory before their reboot.
 
 > [!NOTE]
-> Any arguments passed to `kickstart.sh` are passed to `init.sh` and `start.sh`, and `init.sh` can add or edit wifi networks -- useful on a Raspberry Pi Zero (2) W! See the top of `init.sh` for the arguments it takes.
+> Any arguments passed to `kickstart.sh` are passed to `start.sh`, which can add or edit wifi networks -- useful on a Raspberry Pi Zero (2) W! See the top of `start.sh` for the arguments it takes.
 
 > [!IMPORTANT]
 > Remember to forward a port to your Hub or HaaS, which listens on 51820 by default. Use 443 on your router to bypass some basic firewall filters.
@@ -101,7 +101,8 @@ By default, `add.sh` sets the peer to route outgoing traffic through the VPN. Yo
 -o, --outgoing    Route outgoing traffic through the VPN
 ```
 
-While `start.sh` brings everything up, `stop.sh` only stops WireGuard. `restart.sh` simply calls these two scripts, passing all of its arguments to them. Therefore, when stopping, if you're using Docker, you must also run `sudo docker compose down` to bring the other services down. Happy stargazing!
+> [!NOTE]
+> While `start.sh` brings everything up, `restart.sh` only restarts WireGuard.
 
 > [!TIP]
 > Don't forget to share an updated config with its peer.

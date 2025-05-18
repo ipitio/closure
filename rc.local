@@ -4,4 +4,4 @@
 CLS_PATH="/opt/closure"
 
 # don't change it here
-[ -f /opt/closure/installed ] || bash "$CLS_PATH"/kickstart.sh
+[ -f /opt/closure/installed ] || bash "$CLS_PATH"/init.sh

@@ -55,12 +55,20 @@ if ! dpkg -l docker-ce >/dev/null 2>&1; then
     echo "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 fi
 
+if ! dpkg -l closure >/dev/null 2>&1; then
+    sudo mkdir -m 0755 -p /etc/apt/keyrings/
+    wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
+    echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list &>/dev/null
+    sudo chmod 644 /etc/apt/keyrings/closure.gpg
+    sudo chmod 644 /etc/apt/sources.list.d/closure.list
+fi
+
 [ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudo mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
 sudo systemctl disable --now whoopsie.path &>/dev/null
 sudo systemctl mask whoopsie.path &>/dev/null
 sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
 # shellcheck disable=SC2046
-apt_install $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )|(?<=^Suggests: )).*' debian/control | tr -d ',' | tr '\n' ' ')
+apt_install closure $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )|(?<=^Suggests: )).*' debian/control | tr -d ',' | tr '\n' ' ')
 sudo apt autoremove -y
 yq -V | grep -q mikefarah &>/dev/null || {
     [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak

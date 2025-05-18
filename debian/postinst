@@ -2,6 +2,7 @@
 # shellcheck disable=SC1003
 
 # Reinstall if no installed
+[ -f /opt/closure/installed ] || rm -rf /opt/closure/installed
 [ -f /etc/rc.local ] || echo "#\!/bin/bash" | tr -d '\\' | tee /etc/rc.local >/dev/null
-grep -q closure /etc/rc.local || echo "[ -f /opt/closure/installed ] || bash /opt/closure/kickstart.sh" | tee -a /etc/rc.local >/dev/null
+grep -q closure /etc/rc.local || echo "[ -f /opt/closure/installed ] || bash /opt/closure/init.sh" | tee -a /etc/rc.local >/dev/null
 chmod +x /etc/rc.local

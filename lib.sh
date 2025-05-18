@@ -83,11 +83,11 @@ restart_isc() {
 
 stop_hostapd() {
     local aps
-    aps=$(sudo find /var/run/hostapd -type s | grep -oP '(?<=/var/run/hostapd/).+')
+    aps=$(sudo find /var/run/hostapd -type s 2>&1 | grep -oP '(?<=/var/run/hostapd/).+')
     ps -aux | grep -P "^[^-]+hostapd$2" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
 
-    for wiface in $aps; do
-        [[ -z "$1" || "$1" == "${wiface//*@/}" ]] || continue
+    for wiface in $1 $aps; do
+        [[ -z "$1" || "$1" == "$wiface" ]] || continue
         sudo rm -rf /var/run/hostapd/"$wiface" &>/dev/null
         [[ ! "$wiface" =~ @ ]] || sudo iw dev "$wiface" del &>/dev/null
     done
@@ -118,6 +118,7 @@ start_hostapd() {
         for wiface in "${!wifaces_configs[@]}"; do
             config="${wifaces_configs[$wiface]}"
             [ "$config" != "." ] || config="$wiface"
+            echo "Starting hostapd on $wiface with config $config"
             [ -f hostapd/"$config".conf ] && ! yq '(.network.wifis | keys)[]' netplan.yml | grep -qFx "$wiface" && iw dev | grep -qzP "Interface ${wiface//*@/}\n" && ! iw dev "$wiface" info | grep -q ssid || continue
             # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
             [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
@@ -134,7 +135,13 @@ start_hostapd() {
                         [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
                         sudo iw dev "$wiface" set power_save off
-                        sudo ifconfig "$wiface" 10.42.1.$((1 + $( (ifconfig | grep -oP '(?<=10\.42\.1\.)\S+'; echo 1) | grep -v 255 | sort -ru | head -n1))) netmask 255.255.255.0
+                        local octet
+                        octet=$((1 + $( (
+                            ifconfig | grep -oP '(?<=10\.42\.)\S+(?=\.1)'
+                            echo 1
+                        ) | grep -v 255 | sort -ru | head -n1)))
+                        sudo ifconfig "$wiface" 10.42.$octet.1 netmask 255.255.255.0
+                        grep -qF "subnet 10.42.$octet.0 netmask 255.255.255.0" dhcp/dhcpd.conf || echo -e "\nsubnet 10.42.$octet.0 netmask 255.255.255.0 {\n    option routers 10.42.$octet.1;\n    range 10.42.$octet.2 10.42.$octet.254;\n}" | sudo tee -a dhcp/dhcpd.conf
                         restart_isc
                         sleep 15
                     done
@@ -171,7 +178,7 @@ direct_domain() {
     local ichi
     ichi=$(dig +short "$1")
     for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE" &>/dev/null; done
-    $2
+    $2 &>/dev/null
     for ip in $ichi; do ! ip r | grep -q "$ip" || sudo ip route del "$ip" &>/dev/null; done
 }
 
