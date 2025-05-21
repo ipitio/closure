@@ -117,8 +117,16 @@ start_hostapd() {
 
         for wiface in "${!wifaces_configs[@]}"; do
             config="${wifaces_configs[$wiface]}"
-            [ "$config" != "." ] || config="$wiface"
-            echo "Starting hostapd on $wiface with config $config"
+
+            if [ "$config" = "." ]; then
+                if [[ "$wiface" =~ @ ]]; then
+                    config="$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\d+')@"
+                    [ ! -f hostapd/"$config${wiface//*@/}".conf ] || config=$config${wiface//*@/}
+                else
+                    config="$wiface"
+                fi
+            fi
+
             [ -f hostapd/"$config".conf ] && ! yq '(.network.wifis | keys)[]' netplan.yml | grep -qFx "$wiface" && iw dev | grep -qzP "Interface ${wiface//*@/}\n" && ! iw dev "$wiface" info | grep -q ssid || continue
             # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
             [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
@@ -130,7 +138,6 @@ start_hostapd() {
                 while :; do
                     while iw dev "$wiface" info | grep -q ssid; do sleep 5; done
                     until iw dev "$wiface" info | grep -q ssid; do
-                        echo "Starting hostapd on $wiface"
                         stop_hostapd "$wiface" ".*$config"
                         [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf

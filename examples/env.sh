@@ -45,8 +45,9 @@ CLS_WIFACE=""
 CLS_AP_HOSTAPD=false
 
 # "/" separated list of interfaces to use for the hostapd AP
+# Nothing happens if the corresponding config is not found in `hostapd/`
 CLS_AP_WIFACES="ap@$CLS_WIFACE"
 
-# "/" separated list of names of the respective configs in `hostapd/` for the above interfaces
-# "." means the same as the interface
-CLS_AP_CONFIGS="ap@"
+# "/" separated list of the respective configs in `hostapd/` (without `.conf`) for the above interfaces
+# "." means the same as the interface, or the correct `X@[wiface].conf` for an AP@STA
+CLS_AP_CONFIGS="."

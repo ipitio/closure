@@ -1,7 +1,3 @@
 #!/bin/bash
 
-# directory where closure is installed
-CLS_PATH="/opt/closure"
-
-# don't change it here
-[ -f /opt/closure/installed ] || bash "$CLS_PATH"/init.sh
+[ -f /opt/closure/installed ] || bash /opt/closure/init.sh

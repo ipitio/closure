@@ -79,6 +79,27 @@ jobs:
           signing-key: ${{ secrets.SIGNING_KEY }}
           architectures: amd64 i386 arm64 armhf arm
 
+      - name: Copy script
+        run: |
+          echo "#!/bin/bash
+          sudo() {
+              if command -v sudo >/dev/null; then
+                  command sudo "$@" || "$@"
+              else
+                  "$@"
+              fi
+          }
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -o APT::Get::AllowUnauthenticated=true install -qq gpg wget
+          sudo mkdir -m 0755 -p /etc/apt/keyrings/
+          wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
+          sudo chmod 644 /etc/apt/keyrings/closure.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list &>/dev/null
+          sudo chmod 644 /etc/apt/sources.list.d/closure.list
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -o APT::Get::AllowUnauthenticated=true install --no-install-recommends -qq closure
+          " | tee ${{ steps.create-apt-repo.outputs.dir }}/i
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         id: upload-artifact
