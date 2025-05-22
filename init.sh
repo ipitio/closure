@@ -4,9 +4,9 @@
 sudonot() {
     # shellcheck disable=SC2068
     if command -v sudo >/dev/null; then
-        sudo ${@:-:} || ${@:-:}
+        sudo "${@:-:}" || "${@:-:}"
     else
-        ${@:-:}
+        "${@:-:}"
     fi
 }
 
