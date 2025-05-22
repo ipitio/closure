@@ -31,7 +31,7 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 ### Configuration
 
-When completing step 2 below, move everything in `examples/` out to the parent directory. The files to edit are:
+When completing step 2 below, move everything in `examples/` out to the parent directory first. The files to edit are:
 
 - `dhcp/*dhcp*`: DHCP config, if you want to use the node as a DHCP server without Pi-hole
 - `netplan.yml`: primary network config
@@ -59,10 +59,10 @@ Keep in mind that:
 Create or update a node in two or three steps:
 
 1. Install the package by either
-    - piping `https://ipitio.github.io/closure/i` to bash,
-    - downloading it from [Releases](https://github.com/ipitio/closure/releases),
-    - running the following commands, or
-    - copying this repo to `/opt/closure` and ensuring `rc.local` is executable and moved to `/etc`.
+    - piping `https://ipitio.github.io/closure/i` to Bash;
+    - running the following commands;
+    - downloading it from [Releases](https://github.com/ipitio/closure/releases); or
+    - copying this repo to `/opt/closure`, ensuring `rc.local` is executable and moved to `/etc`.
 
 ```{bash}
 sudo apt-get update

@@ -84,7 +84,7 @@ jobs:
           echo "#!/bin/bash
           sudonot() {
               if command -v sudo >/dev/null; then
-                  command sudo -E \${@:-:} || \${@:-:}
+                  sudo -E \${@:-:} || \${@:-:}
               else
                   \${@:-:}
               fi
