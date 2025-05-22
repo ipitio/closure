@@ -58,21 +58,23 @@ Keep in mind that:
 
 Create or update a node in two or three steps:
 
-1. Either install the [package](https://github.com/ipitio/closure/releases) directly (by piping `https://ipitio.github.io/closure/i` to bash, which runs the following)...
+1. Install the package by either
+    - piping `https://ipitio.github.io/closure/i` to bash,
+    - downloading it from [Releases](https://github.com/ipitio/closure/releases),
+    - running the following commands, or
+    - copying this repo to `/opt/closure` and ensuring `rc.local` is executable and moved to `/etc`.
 
 ```{bash}
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gpg wget
 sudo mkdir -m 0755 -p /etc/apt/keyrings/
 wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
-sudo chmod 644 /etc/apt/keyrings/closure.gpg
 echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list &>/dev/null
+sudo chmod 644 /etc/apt/keyrings/closure.gpg
 sudo chmod 644 /etc/apt/sources.list.d/closure.list
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -qq closure
 ```
-
-...Or copy this repo to `/opt/closure` on the target, ensuring `rc.local` is executable and moved to `/etc`. The package will be installed after the next step.
 
 2. Edit the files above and reboot. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster.
 3. On a Hub or HaaS, add a Spoke or SaaH peer by running `add.sh` (as described below). Then, for a SaaH, add an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the wireguard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP, and run `sudo bash restart.sh`. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty. Follow a similar process for a Spoke, if needed.

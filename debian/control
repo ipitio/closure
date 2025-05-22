@@ -4,7 +4,7 @@ Homepage: https://github.com/ipitio/closure
 Standards-Version: 3.9.2
 
 Package: closure
-Version: 1.6.7
+Version: 1.6.8
 Maintainer: ipitio <21136719+ipitio@users.noreply.github.com>
 Depends: curl, flatpak, gpg, hostapd, isc-dhcp-server, iw, macchanger, netplan.io, network-manager, net-tools, qrencode, rfkill, wireguard, wireless-tools, wget
 Recommends: containerd.io, docker-ce, docker-ce-cli, docker-buildx-plugin, docker-compose-plugin

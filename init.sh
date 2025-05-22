@@ -1,18 +1,19 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2009,SC2015
 
-sudo() {
+sudonot() {
+    # shellcheck disable=SC2068
     if command -v sudo >/dev/null; then
-        command sudo "$@" || "$@"
+        sudo ${@:-:} || ${@:-:}
     else
-        "$@"
+        ${@:-:}
     fi
 }
 
 apt_install() {
     if ! dpkg -l "$@" >/dev/null 2>&1; then
-        sudo apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq "$@"
+        sudonot apt-get update
+        sudonot DEBIAN_FRONTEND=noninteractive apt-get install -yqq "$@"
     fi
 }
 
@@ -22,67 +23,68 @@ source "env.sh"
 
 if [ -f /boot/firmware/cmdline.txt ]; then
     if [ -n "$CLS_OTG_g_" ] && ! grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
-        grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudo tee -a /boot/firmware/config.txt
+        grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudonot tee -a /boot/firmware/config.txt
         sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=peripheral/g" /boot/firmware/config.txt
-        grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
-        grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
-        grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
-        grep -qP "modules-load=.*g_$CLS_OTG_g_" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
-        ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudo sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
-        sudo reboot
+        grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudonot tee -a /boot/firmware/cmdline.txt >/dev/null
+        grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudonot tee -a /boot/firmware/cmdline.txt >/dev/null
+        grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudonot sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
+        grep -qP "modules-load=.*g_$CLS_OTG_g_" /boot/firmware/cmdline.txt || sudonot sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
+        ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudonot sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
+        sudonot reboot
     elif [ -z "$CLS_OTG_g_" ] && grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
         sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=host/g" /boot/firmware/config.txt
-        sudo reboot
+        sudonot reboot
     fi
 fi
 
 pids=$(ps -o ppid=$$)
-ps -aux | grep -P "^[^-]+$this_dir/init.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
+ps -aux | grep -P "^[^-]+$this_dir/init.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudonot kill -9 "$pid" &>/dev/null; done
 mv -n examples/* . 2>/dev/null
 rmdir examples 2>/dev/null
 
 if ! dpkg -l apt-fast >/dev/null 2>&1; then
-    sudo add-apt-repository -y ppa:apt-fast/stable
-    sudo apt-get update
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq apt-fast
+    sudonot add-apt-repository -y ppa:apt-fast/stable
+    sudonot apt-get update
+    sudonot DEBIAN_FRONTEND=noninteractive apt-get install -yq apt-fast
 fi
 
 if ! dpkg -l docker-ce >/dev/null 2>&1; then
     apt_install ca-certificates curl
-    sudo install -m 0755 -d /etc/apt/keyrings
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-    sudo chmod a+r /etc/apt/keyrings/docker.asc
-    echo "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+    sudonot install -m 0755 -d /etc/apt/keyrings
+    sudonot curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    sudonot chmod a+r /etc/apt/keyrings/docker.asc
+    echo "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudonot tee /etc/apt/sources.list.d/docker.list >/dev/null
 fi
 
 if ! dpkg -l closure >/dev/null 2>&1; then
-    sudo mkdir -m 0755 -p /etc/apt/keyrings/
-    wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/closure.gpg > /dev/null
-    echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudo tee /etc/apt/sources.list.d/closure.list &>/dev/null
-    sudo chmod 644 /etc/apt/keyrings/closure.gpg
-    sudo chmod 644 /etc/apt/sources.list.d/closure.list
+    sudonot mkdir -m 0755 -p /etc/apt/keyrings/
+    wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudonot tee /etc/apt/keyrings/closure.gpg > /dev/null
+    echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudonot tee /etc/apt/sources.list.d/closure.list &>/dev/null
+    sudonot chmod 644 /etc/apt/keyrings/closure.gpg
+    sudonot chmod 644 /etc/apt/sources.list.d/closure.list
 fi
 
-[ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudo mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
-sudo systemctl disable --now whoopsie.path &>/dev/null
-sudo systemctl mask whoopsie.path &>/dev/null
-sudo apt-get purge -y ubuntu-report popularity-contest apport whoopsie
+[ ! -f /etc/apt/preferences.d/nosnap.pref ] || sudonot mv /etc/apt/preferences.d/nosnap.pref /etc/apt/preferences.d/nosnap.pref.bak
+sudonot systemctl disable --now whoopsie.path &>/dev/null
+sudonot systemctl mask whoopsie.path &>/dev/null
+sudonot apt-get purge -y ubuntu-report popularity-contest apport whoopsie
 # shellcheck disable=SC2046
 apt_install closure $(grep -oP '((?<=^Depends: )|(?<=^Recommends: )|(?<=^Suggests: )).*' debian/control | tr -d ',' | tr '\n' ' ')
-sudo apt autoremove -y
+sudonot apt autoremove -y
 yq -V | grep -q mikefarah &>/dev/null || {
-    [ ! -f /usr/bin/yq ] || sudo mv -f /usr/bin/yq /usr/bin/yq.bak
+    [ ! -f /usr/bin/yq ] || sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
     arch=$(uname -m)
     [ "$arch" = "x86_64" ] && arch="amd64" || :
     [ "$arch" = "aarch64" ] && arch="arm64" || :
     [ "$arch" = "armv7l" ] && arch="armhf" || :
     [ "$arch" = "armhf" ] && arch="arm" || :
     [[ "$arch" == "i686" || "$arch" == "i386" ]] && arch="386" || :
-    sudo curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_"$arch"
-    sudo chmod +x /usr/bin/yq
+    sudonot curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_"$arch"
+    sudonot chmod +x /usr/bin/yq
 }
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --noninteractive flathub tv.kodi.Kodi
+[ ! -f /.dockerenv ] || exit 0
 source "lib.sh"
 
 # Free port 53 on Ubuntu for Pi-hole

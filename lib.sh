@@ -40,9 +40,9 @@ user_exists() { id "$1" &>/dev/null; }
 
 sudo() {
     if command -v sudo >/dev/null; then
-        command sudo "$@"
+        command sudo ${@:-:} || ${@:-:}
     else
-        "$@"
+        ${@:-:}
     fi
 }
 
