@@ -84,9 +84,9 @@ jobs:
           echo "#!/bin/bash
           sudo() {
               if command -v sudo >/dev/null; then
-                  { command sudo "$@" || "$@" ;}
+                  command sudo "${@:-:}" || ${@:-:}
               else
-                  { "$@" ;}
+                  ${@:-:}
               fi
           }
           sudo apt-get update
