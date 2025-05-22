@@ -4,16 +4,18 @@
 sudonot() {
     # shellcheck disable=SC2068
     if command -v sudo >/dev/null; then
-        sudo "${@:-:}" || "${@:-:}"
+        sudo -E ${@:-:} || ${@:-:}
     else
-        "${@:-:}"
+        ${@:-:}
     fi
 }
 
 apt_install() {
     if ! dpkg -l "$@" >/dev/null 2>&1; then
         sudonot apt-get update
-        sudonot DEBIAN_FRONTEND=noninteractive apt-get install -yqq "$@"
+        export DEBIAN_FRONTEND=noninteractive
+        sudonot  apt-get install -yqq "$@"
+        DEBIAN_FRONTEND=
     fi
 }
 
