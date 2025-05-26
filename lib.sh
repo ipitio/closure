@@ -86,6 +86,11 @@ stop_hostapd() {
     aps=$(sudo find /var/run/hostapd -type s 2>&1 | grep -oP '(?<=/var/run/hostapd/).+')
     ps -aux | grep -P "^[^-]+hostapd$2" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
 
+    if [ -z "$1" ]; then
+        sudo sed -i '/# subnets for hostapd/q' dhcp/dhcpd.conf
+        grep -q "subnets for hostapd" dhcp/dhcpd.conf || echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
+    fi
+
     for wiface in $1 $aps; do
         [[ -z "$1" || "$1" == "$wiface" ]] || continue
         sudo rm -rf /var/run/hostapd/"$wiface" &>/dev/null
@@ -97,7 +102,7 @@ start_hostapd() {
     if [ -n "$CLS_WIFACE" ]; then
         (
             until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
-            set_mac="$(jq ".[\"$(iwconfig "$CLS_WIFACE" | grep -oP '(?<=ESSID:)\S+' | sed -r "s/^\"(.+)\"$/\1/g; s/\"/\\\\\"/g")\"]" config/wifis.json 2>/dev/null | tr -d '"')"
+            set_mac="$(jq ".[\"$(printf "%b" "$(iwconfig "$CLS_WIFACE" | grep -zoP '(?<=ESSID:").+(?=")' | tr -d '\0' | sed -r "s/\"/\\\\\"/g")")\"]" config/wifis.json 2>/dev/null | tr -d '"')"
 
             if (("${#set_mac}" == 17)) && [ "$set_mac" != "$(ifconfig "$CLS_WIFACE" | grep -oP "(?<=ether )\S+")" ]; then
                 sudo ifconfig "$CLS_WIFACE" down
@@ -128,9 +133,6 @@ start_hostapd() {
             fi
 
             [ -f hostapd/"$config".conf ] && ! yq '(.network.wifis | keys)[]' netplan.yml | grep -qFx "$wiface" && iw dev | grep -qzP "Interface ${wiface//*@/}\n" && ! iw dev "$wiface" info | grep -q ssid || continue
-            # https://raw.githubusercontent.com/MkLHX/AP_STA_RPI_SAME_WIFI_CHIP/refs/heads/master/ap_sta_config2.sh
-            [[ ! "$wiface" =~ @ ]] || until [ -n "$freq" ]; do freq=$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\S+' | tr -d '.'); done
-            [[ ! "$wiface" =~ @ ]] || sudo sed -i "s/^\(channel\s*=\s*\).*/\1$(iw list | grep "$freq." | head -n1 | grep -oP '(?<=\[)[^\]]+')/" hostapd/"$config".conf
             sudo sed -i "s/^\(interface\s*=\s*\).*/\1$wiface/" hostapd/"$config".conf
             sudo chmod 644 hostapd/"$config".conf
 
@@ -139,7 +141,18 @@ start_hostapd() {
                     while iw dev "$wiface" info | grep -q ssid; do sleep 5; done
                     until iw dev "$wiface" info | grep -q ssid; do
                         stop_hostapd "$wiface" ".*$config"
-                        [[ ! "$wiface" =~ @ ]] || sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
+
+                        if [[ "$wiface" =~ @ ]]; then
+                            sudo iw dev "${wiface//*@/}" interface add "$wiface" type __ap
+                            freq=$(iw list | grep "$(iwconfig "${wiface//*@/}" | grep -oP '(?<=Frequency:)\S+' | tr -d '.')." | head -n1 | grep -oP '(?<=\[)[^\]]+')
+
+                            if [ -z "$freq" ]; then
+                                grep -q '^hw_mode=a' hostapd/"$config".conf && freq=149 || freq=11
+                            fi
+
+                            sudo sed -i "s/^\(channel\s*=\s*\).*/\1$freq/" hostapd/"$config".conf
+                        fi
+
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
                         sudo iw dev "$wiface" set power_save off
                         local octet
@@ -181,30 +194,26 @@ curl() {
     return 1
 }
 
+dig() {
+    command dig "$1" +trace 2>/dev/null | grep -oP "(?<=^${1//\./\\\.}\.).+(AAA)?A.+" | grep -oP '\S+$'
+}
+
 direct_domain() {
     local ichi
-    ichi=$(dig +short "$1")
+    ichi=$(dig "$1")
     for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE" &>/dev/null; done
-    $2 &>/dev/null
+    $2 2>/dev/null
     for ip in $ichi; do ! ip r | grep -q "$ip" || sudo ip route del "$ip" &>/dev/null; done
 }
 
 get_server_ip() {
-    local server_ip="$CLS_WG_SERVER_IP"
+    local server_ip="$SERVERURL"
 
     if ! is_ip "$server_ip"; then
-        if ! is_ip "$SERVERURL"; then
-            if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]]; then
-                server_ip=$(dig +short "$SERVERURL" | grep -oP '\S+$' | tail -n1)
-            else
-                local ichi
-                ichi=$(dig +short icanhazip.com)
-                for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE"; done
-                server_ip=$(direct_domain icanhazip.com "curl https://icanhazip.com" | tail -n1)
-                for ip in $ichi; do ! ip r | grep -q "$ip" || sudo ip route del "$ip"; done
-            fi
+        if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]]; then
+            server_ip=$(dig "$SERVERURL" | tail -n1)
         else
-            server_ip="$SERVERURL"
+            server_ip=$(direct_domain icanhazip.com "curl https://icanhazip.com" | tail -n1)
         fi
     fi
 

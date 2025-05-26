@@ -9,7 +9,6 @@ eval "cast pre-down ${*@Q}"
 sudo sysctl -w net.ipv4.ip_forward=0
 sudo sysctl -w net.ipv6.conf.all.forwarding=0
 sudo docker ps | grep -q wireguard && sudo docker compose stop wireguard || sudo wg-quick down "$CLS_INTERN_IFACE"
-sudo docker ps | grep -qE "pihole.*Up" || sudo cp -f /etc/resolv.conf.orig /etc/resolv.conf
 
 # shellcheck disable=SC2009
 ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
@@ -31,5 +30,6 @@ for tables in iptables ip6tables; do
 done
 
 eval "cast post-down ${*@Q}"
-bash start.sh ${@@Q}
+# shellcheck disable=SC2086
+sudo CLS_WG_ONLY=${CLS_WG_ONLY:-true} bash start.sh ${@@Q}
 popd || exit

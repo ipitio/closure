@@ -14,7 +14,7 @@ apt_install() {
     if ! dpkg -l "$@" >/dev/null 2>&1; then
         sudonot apt-get update
         export DEBIAN_FRONTEND=noninteractive
-        sudonot  apt-get install -yqq "$@"
+        sudonot apt-get install -yqq "$@"
         DEBIAN_FRONTEND=
     fi
 }
@@ -22,22 +22,6 @@ apt_install() {
 this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "env.sh"
-
-if [ -f /boot/firmware/cmdline.txt ]; then
-    if [ -n "$CLS_OTG_g_" ] && ! grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
-        grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudonot tee -a /boot/firmware/config.txt
-        sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=peripheral/g" /boot/firmware/config.txt
-        grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudonot tee -a /boot/firmware/cmdline.txt >/dev/null
-        grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudonot tee -a /boot/firmware/cmdline.txt >/dev/null
-        grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudonot sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
-        grep -qP "modules-load=.*g_$CLS_OTG_g_" /boot/firmware/cmdline.txt || sudonot sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
-        ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudonot sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
-        sudonot reboot
-    elif [ -z "$CLS_OTG_g_" ] && grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
-        sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=host/g" /boot/firmware/config.txt
-        sudonot reboot
-    fi
-fi
 
 pids=$(ps -o ppid=$$)
 ps -aux | grep -P "^[^-]+$this_dir/init.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudonot kill -9 "$pid" &>/dev/null; done
@@ -88,13 +72,6 @@ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.f
 flatpak install --noninteractive flathub tv.kodi.Kodi
 [ ! -f /.dockerenv ] || exit 0
 source "lib.sh"
-
-# Free port 53 on Ubuntu for Pi-hole
-sudo sed -i 's/#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
-sudo systemctl restart systemd-resolved
-sudo cp -f /run/systemd/resolve/resolv.conf /etc/resolv.conf
-grep -q '^nameserver 1\.1\.1\.1$' /etc/resolv.conf.bak || echo -e "nameserver 1.1.1.1\n$(cat /etc/resolv.conf)" | sudo tee /etc/resolv.conf.bak >/dev/null
-sudo cp -f /etc/resolv.conf /etc/resolv.conf.orig
 
 # general performance
 # https://cromwell-intl.com/open-source/performance-tuning/tcp.html
@@ -179,23 +156,10 @@ Icon=system-run
 X-GNOME-Autostart-enabled=true
 " | sudo tee /home/"$CLS_ACTIVE_USER"/.config/autostart/kickstart.desktop >/dev/null
 else
-    ! grep -q "$active_path" /home/"$CLS_ACTIVE_USER"/.profile || sudo sed -i "\,$active_path,d" /home/"$CLS_ACTIVE_USER"/.profile
+    ! grep -qF "/.closure/" /home/"$CLS_ACTIVE_USER"/.profile || sudo sed -i "\,/\.closure/,d" /home/"$CLS_ACTIVE_USER"/.profile
     echo "grep -qP '\d+' <<<\"\$SSH_CLIENT\" || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
 
-# Allow for split AP+STA mode
-sudo systemctl stop hostapd &>/dev/null
-sudo systemctl disable hostapd &>/dev/null
-sudo systemctl mask hostapd &>/dev/null
-
-# Kodi
-[ -f /home/"$CLS_ACTIVE_USER"/.kodi/.cls ] || sudo cp -r kodi /home/"$CLS_ACTIVE_USER"/.kodi
-
-# for rc.local
-sudo mkdir -p /opt/closure
-sudo touch /opt/closure/installed
-
-# DHCP
 if $CLS_DOCKER; then
     sudo mkdir -p /etc/docker
     echo '{
@@ -205,29 +169,15 @@ if $CLS_DOCKER; then
   }' | sudo tee /etc/docker/daemon.json >/dev/null
     sudo systemctl daemon-reload
     sudo docker compose build
-    sudo systemctl enable --now docker
-
-    for table in nat filter; do
-        for chain in DOCKER DOCKER-ISOLATION-STAGE-1 DOCKER-ISOLATION-STAGE-2; do
-            sudo iptables -L -t "$table" | grep -q "$chain" || sudo iptables -N "$chain" -t "$table"
-            sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
-        done
-    done
-
-    sudo systemctl stop isc-dhcp-server
-    sudo systemctl restart docker
-    sudo docker network prune -f
-    sudo docker compose up -d --remove-orphans
 fi
 
-# Configure nm
-sudo systemctl disable isc-dhcp-server
-sudo mkdir -p /etc/cloud/cloud.cfg.d
-sudo touch /etc/cloud/cloud-init.disabled
-echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
-sudo rm -f /etc/netplan/50-cloud-init.yaml
-sudo rfkill unblock wlan
-sudo iw reg set PA
-[ -d config ] || sudo mkdir config
-[[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
+sudo sed -i 's/#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
+sudo systemctl restart systemd-resolved
+sudo systemctl disable isc-dhcp-server &>/dev/null
+sudo systemctl stop hostapd &>/dev/null
+sudo systemctl disable hostapd &>/dev/null
+sudo systemctl mask hostapd &>/dev/null
+[ -f /home/"$CLS_ACTIVE_USER"/.kodi/.cls ] || sudo cp -r kodi /home/"$CLS_ACTIVE_USER"/.kodi
+sudo mkdir -p /opt/closure
+sudo touch /opt/closure/installed
 popd || exit 1

@@ -104,7 +104,7 @@ services:
       - SERVERURL=
       - SERVERPORT=
       - INTERNAL_SUBNET=10.13.13.0
-      # Only fill the rest in on Spoke or SaaH if you want to use it in server mode too
+      # Fill this in on a Hub or HaaS, only also on Spoke or SaaH if you want to use it in server mode too
       - PEERS=
       # If running Pi-hole or another resolver on this or another node, change DNS to it
       - PEERDNS=1.1.1.1,1.0.0.1
