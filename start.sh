@@ -61,31 +61,36 @@ if ! ${CLS_WG_ONLY:-false}; then
     sudo chmod 0600 /etc/netplan/99_config.yaml
     stop_hostapd
     sudo netplan apply
+    start_hostapd &
     [ -z "$CLS_WIFACE" ] || sudo iw dev "$CLS_WIFACE" set power_save off
-    [ ! -f /etc/resolv.conf ] || sudo rm -f /etc/resolv.conf
     (
-        cat resolv.conf
+        until [ -n "$CLS_LOCAL_IFACE" ]; do
+            get_local_ip
+            sleep 1
+        done
+        [ ! -f /etc/resolv.conf ] || sudo rm -f /etc/resolv.conf
         (
-            nmcli dev show "$CLS_LOCAL_IFACE" | grep DNS | grep -oP '\S+$'
-        ) | while read -r ip; do echo "nameserver $ip"; done
-        (
-            nmcli dev show "$CLS_LOCAL_IFACE" | grep DOMAIN | grep -oP '\S+$' || echo .
-        ) | while read -r name; do echo "search $name"; done
-    ) | sudo tee /etc/resolv.conf >/dev/null
-    [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
-    [ -z "$CLS_LOCAL_IFACE" ] || sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
-    sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
-    (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
+            cat resolv.conf
+            (
+                nmcli dev show "$CLS_LOCAL_IFACE" | grep DNS | grep -oP '\S+$'
+            ) | while read -r ip; do echo "nameserver $ip"; done
+            (
+                nmcli dev show "$CLS_LOCAL_IFACE" | grep DOMAIN | grep -oP '\S+$' || echo .
+            ) | while read -r name; do echo "search $name"; done
+        ) | sudo tee /etc/resolv.conf >/dev/null
+        sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
+        sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
+        sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
+        (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
 
-    if [ -n "$CLS_DYN_DNS" ]; then
-        (
-            crontab -l 2>/dev/null
-            echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
-        ) | crontab -
-        sudo bash ddns.sh &
-    fi
-
-    start_hostapd
+        if [ -n "$CLS_DYN_DNS" ]; then
+            (
+                crontab -l 2>/dev/null
+                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
+            ) | crontab -
+            sudo bash ddns.sh &
+        fi
+    ) &
 fi
 
 if $CLS_DOCKER; then
@@ -100,10 +105,9 @@ if $CLS_DOCKER; then
 else
     sudo sysctl -w net.ipv4.ip_forward=0
     sudo sysctl -w net.ipv6.conf.all.forwarding=0
-    sudo wg-quick down "$CLS_INTERN_IFACE"
+    for iface in $(sudo wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
 fi
 
-get_local_ip # set variables
 eval "cast pre-up ${*@Q}"
 
 (
@@ -159,7 +163,10 @@ if $CLS_DOCKER; then
     if ! ip a show "$CLS_INTERN_IFACE" | grep -q UP; then
         sudo systemctl restart docker
         sudo docker network prune -f
-        until [ -n "$CLS_LOCAL_IP" ]; do get_local_ip; sleep 1; done
+        until [ -n "$CLS_LOCAL_IP" ]; do
+            get_local_ip
+            sleep 1
+        done
         sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$CLS_LOCAL_IP/" compose.yml
         sudo docker compose --profile prod up -d --force-recreate --remove-orphans
     elif ! sudo docker ps | grep -qE "wireguard.*Up"; then
@@ -169,11 +176,16 @@ if $CLS_DOCKER; then
 else
     sudo bash wireguard/etc/run
     sudo mkdir -p /etc/wireguard
-    sudo rm -f /etc/wireguard/"$CLS_INTERN_IFACE".conf &>/dev/null
-    sudo cp -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf /etc/wireguard/"$CLS_INTERN_IFACE".conf
-    sudo chmod 600 /etc/wireguard/"$CLS_INTERN_IFACE".conf
-    sudo chown root:root /etc/wireguard/"$CLS_INTERN_IFACE".conf
-    sudo wg-quick up "$CLS_INTERN_IFACE"
+    sudo rm -f /etc/wireguard/*.conf &>/dev/null
+    sudo ls wireguard/config/wg_confs | grep -oP '.+\.conf$' | while read -r conf; do
+        [ -s "wireguard/config/wg_confs/$conf" ] || continue
+        config="/etc/wireguard/$conf"
+        iface="${conf%.conf}"
+        sudo cp -f "wireguard/config/wg_confs/$conf" "$config"
+        sudo chmod 600 "$config"
+        sudo chown root:root "$config"
+        sudo wg-quick up "$iface"
+    done
 fi
 
 for tables in iptables ip6tables; do

@@ -44,7 +44,7 @@ fi
 
 if ! dpkg -l closure >/dev/null 2>&1; then
     sudonot mkdir -m 0755 -p /etc/apt/keyrings/
-    wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudonot tee /etc/apt/keyrings/closure.gpg > /dev/null
+    wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudonot tee /etc/apt/keyrings/closure.gpg >/dev/null
     echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudonot tee /etc/apt/sources.list.d/closure.list &>/dev/null
     sudonot chmod 644 /etc/apt/keyrings/closure.gpg
     sudonot chmod 644 /etc/apt/sources.list.d/closure.list
@@ -137,8 +137,8 @@ fi
 # Autostart on login
 sudo sed -i "s,script_path=.*$,script_path=$PWD," kickstart.sh
 active_path=/home/"$CLS_ACTIVE_USER"/.closure/kickstart.sh
-allow_active="$CLS_ACTIVE_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$active_path"
-allow_script="$CLS_SCRIPT_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:$PWD/*"
+allow_active="$CLS_ACTIVE_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:SETENV:$active_path"
+allow_script="$CLS_SCRIPT_USER$(echo -e '\t')ALL=(ALL) NOPASSWD:SETENV:$PWD/*"
 sudo chown "$CLS_SCRIPT_USER":"$CLS_SCRIPT_USER" kickstart.sh
 sudo chmod +x kickstart.sh
 sudo mkdir -p "$(dirname "$active_path")"

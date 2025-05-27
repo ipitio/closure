@@ -1,3 +1,9 @@
 #!/bin/bash
 
+# closure
 [ -f /opt/closure/installed ] || bash /opt/closure/init.sh
+ifconfig | grep -oP '^\S+(?=:)' | xargs -P0 -I{} bash -c '
+    ifconfig "{}" down &>/dev/null
+    macchanger -r "{}" &>/dev/null
+    ifconfig "{}" up &>/dev/null
+'

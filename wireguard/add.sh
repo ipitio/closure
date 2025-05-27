@@ -53,7 +53,8 @@ esac
 echo "$conf" >"$path.conf"
 
 if $CLS_DOCKER; then
-    sudo docker exec wireguard bash -c "wg-quick down $CLS_INTERN_IFACE ; wg-quick up $CLS_INTERN_IFACE"
+    sudo docker compose restart wireguard
+    sudo docker exec wireguard bash -c "wg-quick down wg0 ; wg-quick up wg0"
     sudo docker compose up -d wireguard
 else
     sudo wg-quick down "$CLS_INTERN_IFACE" ; sudo wg-quick up "$CLS_INTERN_IFACE"

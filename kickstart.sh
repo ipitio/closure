@@ -4,6 +4,6 @@
 script_path="$(dirname "$(readlink -f "$0")")"
 sudo -i bash <<EOF
 pushd "$script_path" || exit 1
-sudo bash start.sh ${@@Q} > ks.log
+CLS_WG_ONLY=${CLS_WG_ONLY:-false} bash start.sh ${@@Q} > ks.log
 popd || exit 1
 EOF

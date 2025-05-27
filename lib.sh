@@ -156,11 +156,16 @@ start_hostapd() {
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
                         sudo iw dev "$wiface" set power_save off
                         local octet
-                        octet=$((1 + $( (
-                            ifconfig | grep -oP '(?<=10\.42\.)\S+(?=\.1)'
-                            echo 1
-                        ) | grep -v 255 | sort -ru | head -n1)))
-                        sudo ifconfig "$wiface" 10.42.$octet.1 netmask 255.255.255.0
+                        octet=$(ifconfig "$wiface" | grep -zoP '(?<=inet 10\.42\.)\S+(?=\.1)')
+
+                        if [ -z "$octet" ]; then
+                            octet=$((1 + $( (
+                                ifconfig | grep -zoP '(?<=10\.42\.)\S+(?=\.1)'
+                                echo 1
+                            ) | grep -v 255 | sort -ru | head -n1)))
+                            sudo ifconfig "$wiface" 10.42."$octet".1 netmask 255.255.255.0
+                        fi
+
                         grep -qF "subnet 10.42.$octet.0 netmask 255.255.255.0" dhcp/dhcpd.conf || echo -e "\nsubnet 10.42.$octet.0 netmask 255.255.255.0 {\n    option routers 10.42.$octet.1;\n    range 10.42.$octet.2 10.42.$octet.254;\n}" | sudo tee -a dhcp/dhcpd.conf
                         restart_isc
                         sleep 15

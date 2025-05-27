@@ -93,15 +93,15 @@ Set a Hub or HaaS up first, so you can generate the necessary peer configuration
 
 ### Maintenance
 
-You can (re)configure WireGuard peers (on bare metal as well, thanks to code shared by [LinuxServer.io](https://github.com/linuxserver/docker-wireguard)):
+You can (re)configure WireGuard peers (on bare metal as well, thanks to code shared by [LinuxServer.io](https://github.com/linuxserver/docker-wireguard)). Add WireGuard peers or modify the AllowedIPs of existing ones, show peer config QR codes, and delete peers with:
 
-- Add WireGuard peers, or modify the AllowedIPs of existing ones, with `sudo bash wireguard/add.sh <peer_name> [option]`.
-- Show peer config QR codes with `sudo bash wireguard/get.sh <peer_name>`.
-- Delete peers with `sudo bash wireguard/del.sh <peer_name>`.
+```{bash}
+sudo bash wireguard/add.sh <peer_name> [option]
+sudo bash wireguard/get.sh <peer_name>
+sudo bash wireguard/del.sh <peer_name>
+```
 
-To complete adding a SaaH, create an `SERVER_ALLOWEDIPS_PEER_[SaaH]=` environment variable -- using the peer's name sans the brackets -- for the WireGuard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
-
-Complete the above or any other CUD operation by running `sudo bash restart.sh`. By default, `add.sh` sets the peer to route outgoing traffic through the VPN. You can change this default by modifying AllowedIPs in `compose.yml`. The option it takes may be one of:
+By default, `add.sh` sets the peer to route outgoing traffic through the VPN. You can change this default by modifying AllowedIPs in `compose.yml`. The option it takes may be one of:
 
 ```{bash}
 -e, --internet    Route all traffic through the VPN
@@ -109,6 +109,8 @@ Complete the above or any other CUD operation by running `sudo bash restart.sh`.
 -l, --link        Allow access to just the VPN
 -o, --outgoing    Route outgoing traffic through the VPN
 ```
+
+After running `add.sh` on a HaaS to create its SaaH peer, create an `SERVER_ALLOWEDIPS_PEER_[SaaH]` environment variable -- using the peer's name sans the brackets -- for the WireGuard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
 
 > [!NOTE]
 > While `start.sh` brings everything up, `restart.sh` only restarts WireGuard unless you first export `CLS_WG_ONLY=false`.
