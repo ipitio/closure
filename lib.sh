@@ -95,6 +95,8 @@ stop_hostapd() {
 
 start_hostapd() {
     (
+        is_ip "$CLS_LOCAL_IP" && local restart_wg=false || local restart_wg=true
+
         until [ -n "$CLS_LOCAL_IFACE" ]; do
             get_local_ip
             sleep 1
@@ -121,6 +123,8 @@ start_hostapd() {
             ) | crontab -
             sudo bash ddns.sh
         fi
+
+        if $restart_wg; then exec sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}; fi
     ) &
 
     if [ -n "$CLS_WIFACE" ]; then

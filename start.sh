@@ -63,7 +63,7 @@ if ! ${CLS_WG_ONLY:-false}; then
     grep -q "subnets for hostapd" dhcp/dhcpd.conf || echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
     ifconfig | grep -oP '^\S+(?=:)' | while read -r iface; do sudo ifconfig "$iface" down; sudo macchanger -r "$iface"; sudo ifconfig "$iface" up; done &>/dev/null
     sudo netplan apply
-    start_hostapd &
+    eval "start_hostapd ${*@Q}" &
 fi
 
 if $CLS_DOCKER; then
@@ -157,7 +157,7 @@ else
         sudo cp -f "wireguard/config/wg_confs/$conf" "$config"
         sudo chmod 600 "$config"
         sudo chown root:root "$config"
-        until sudo wg | grep -qP "(?<=interface: )$iface$"; do sudo wg-quick up "$iface"; done &
+        sudo wg-quick up "$iface"
     done
 fi
 
