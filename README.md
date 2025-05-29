@@ -12,7 +12,7 @@
 
 Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
 
-You can run WireGuard with Docker or on the host. If you run it with Docker (available for armv7+ and amd64), you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists). In either case, Kodi will be installed with the Jellyfin add-on source, for your convenience. You can also choose between Netplan and hostapd for your access point needs.
+You can run WireGuard with Docker or on the host. If you run it with Docker (beta, available for armv7+ and amd64), you'll also get Unbound and Pi-hole v5, which will come with [pihole-speedtest](https://github.com/arevindh/pihole-speedtest) and [pihole-updatelists](https://github.com/jacklul/pihole-updatelists). In either case, Kodi will be installed with the Jellyfin add-on source, for your convenience. You can also choose between Netplan and hostapd for your access point needs.
 
 ## Getting Started
 

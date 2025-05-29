@@ -61,7 +61,11 @@ if ! ${CLS_WG_ONLY:-false}; then
     stop_hostapd
     sudo sed -i '/# subnets for hostapd/q' dhcp/dhcpd.conf
     grep -q "subnets for hostapd" dhcp/dhcpd.conf || echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
-    ifconfig | grep -oP '^\S+(?=:)' | while read -r iface; do sudo ifconfig "$iface" down; sudo macchanger -r "$iface"; sudo ifconfig "$iface" up; done &>/dev/null
+    ifconfig | grep -oP '^\S+(?=:)' | while read -r iface; do
+        sudo ifconfig "$iface" down
+        [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]] && sudo macchanger -r "$iface" || sudo macchanger -p "$iface"
+        sudo ifconfig "$iface" up
+    done &>/dev/null
     sudo netplan apply
     eval "start_hostapd ${*@Q}" &
 fi
