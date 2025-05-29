@@ -50,7 +50,6 @@ if ! ${CLS_WG_ONLY:-false}; then
         fi
     fi
 
-    # Configure nm
     [ ! -d /etc/cloud/cloud.cfg.d ] || sudo mkdir -p /etc/cloud/cloud.cfg.d
     sudo touch /etc/cloud/cloud-init.disabled
     echo "network: {config: disabled}" | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg >/dev/null
@@ -60,37 +59,11 @@ if ! ${CLS_WG_ONLY:-false}; then
     sudo cp -f netplan.yml /etc/netplan/99_config.yaml
     sudo chmod 0600 /etc/netplan/99_config.yaml
     stop_hostapd
+    sudo sed -i '/# subnets for hostapd/q' dhcp/dhcpd.conf
+    grep -q "subnets for hostapd" dhcp/dhcpd.conf || echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
+    ifconfig | grep -oP '^\S+(?=:)' | while read -r iface; do sudo ifconfig "$iface" down; sudo macchanger -r "$iface"; sudo ifconfig "$iface" up; done &>/dev/null
     sudo netplan apply
     start_hostapd &
-    [ -z "$CLS_WIFACE" ] || sudo iw dev "$CLS_WIFACE" set power_save off
-    (
-        until [ -n "$CLS_LOCAL_IFACE" ]; do
-            get_local_ip
-            sleep 1
-        done
-        [ ! -f /etc/resolv.conf ] || sudo rm -f /etc/resolv.conf
-        (
-            cat resolv.conf
-            (
-                nmcli dev show "$CLS_LOCAL_IFACE" | grep DNS | grep -oP '\S+$'
-            ) | while read -r ip; do echo "nameserver $ip"; done
-            (
-                nmcli dev show "$CLS_LOCAL_IFACE" | grep DOMAIN | grep -oP '\S+$' || echo .
-            ) | while read -r name; do echo "search $name"; done
-        ) | sudo tee /etc/resolv.conf >/dev/null
-        sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
-        sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
-        sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
-        (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
-
-        if [ -n "$CLS_DYN_DNS" ]; then
-            (
-                crontab -l 2>/dev/null
-                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
-            ) | crontab -
-            sudo bash ddns.sh &
-        fi
-    ) &
 fi
 
 if $CLS_DOCKER; then
@@ -184,8 +157,18 @@ else
         sudo cp -f "wireguard/config/wg_confs/$conf" "$config"
         sudo chmod 600 "$config"
         sudo chown root:root "$config"
-        sudo wg-quick up "$iface"
+        until sudo wg | grep -qP "(?<=interface: )$iface$"; do sudo wg-quick up "$iface"; done &
     done
+fi
+
+if [[ "$CLS_TYPE_NODE" == "haas" && -n "$CLS_SAAH_PEER" ]]; then
+    [[ -d "wireguard/config/peer_$CLS_SAAH_PEER" ]] || exec sudo bash wireguard/add.sh "$CLS_SAAH_PEER" -- ${@@Q}
+    saah_ip="$(grep -oP '(?<=Address = ).+' "wireguard/config/peer_$CLS_SAAH_PEER/peer_$CLS_SAAH_PEER.conf" 2>/dev/null)"
+
+    if is_ip "$saah_ip" && grep -qF "$saah_ip/32" "wireguard/config/wg_confs/$CLS_INTERN_IFACE.conf"; then
+        sed -i "s|$saah_ip/32|0.0.0.0/1,128.0.0.0/1,::/1,8000::/1|" "wireguard/config/wg_confs/$CLS_INTERN_IFACE.conf"
+        sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
+    fi
 fi
 
 for tables in iptables ip6tables; do

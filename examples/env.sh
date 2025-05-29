@@ -23,6 +23,9 @@ CLS_INTERN_IFACE="wg0"
 # TYPES: hub, spoke, haas, saah
 CLS_TYPE_NODE=""
 
+# If the current node is a haas, this is the name given, or to give, its saah peer
+CLS_SAAH_PEER=""
+
 # DDNS update URL if needed ("https://...")
 CLS_DYN_DNS=""
 

@@ -29,6 +29,12 @@ One of the variables you'll set in `env.sh` will be `CLS_TYPE_NODE`, which is th
 
 A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard port at the location you'd like to have a Hub, but can where you'd otherwise have a stationary, always-on Spoke. While a Spoke can route traffic to a Hub or HaaS, a HaaS can only route traffic to a SaaH.
 
+> [!NOTE]
+> If your Hub or HaaS is behind a dynamic public IP address, sign up for a DDNS provider like freedns.afraid.org and set `CLS_DYN_DNS` to the update URL.
+
+> [!CAUTION]
+> If you use freeDNS, or another provider with a similar option, unlink updates of the same IP address.
+
 ### Configuration
 
 When completing step 2 below, move everything in `examples/` out to the parent directory first. The files to edit are:
@@ -62,7 +68,7 @@ Create or update a node in two or three steps:
 1. Install the package by either:
     - pasting the one-liner or block below;
     - downloading it from [Releases](https://github.com/ipitio/closure/releases); or
-    - copying this repo to `/opt/closure`, ensuring `rc.local` is executable and moved to `/etc`.
+    - copying this repo to `/opt/closure`, then ensuring `rc.local` is executable and moved to `/etc`.
 
 ```{bash}
 curl -sSLNZ https://ipitio.github.io/closure/i | sudo bash
@@ -80,10 +86,10 @@ sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -qq closure
 ```
 
-2. Edit the files above and reboot. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster.
-3. On a Hub or HaaS, add Spokes you didn't define in `compose.yml` or the SaaH peer by running `add.sh` as described below.
+2. Edit the files above and reboot. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster. The SaaH peer will be created on a HaaS if it doesn't exist.
+3. On a Hub or HaaS, add Spokes you didn't define in `compose.yml` by running `add.sh` as described below.
 
-Set a Hub or HaaS up first, so you can generate the necessary peer configurations for a SaaH and Spokes, then drop those in their `wireguard/config/wg_confs` directories before rebooting them.
+Set a Hub or HaaS up first, so SaaH and Spoke peer configurations can be generated, then drop those in their `wireguard/config/wg_confs` directories before rebooting them. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty, if you need it.
 
 > [!NOTE]
 > Any arguments passed to `kickstart.sh` are passed to `start.sh`, which can add or edit wifi networks -- useful on a Raspberry Pi Zero (2) W! See the top of `start.sh` for the arguments it takes.
@@ -93,12 +99,12 @@ Set a Hub or HaaS up first, so you can generate the necessary peer configuration
 
 ### Maintenance
 
-You can (re)configure WireGuard peers (on bare metal as well, thanks to code shared by [LinuxServer.io](https://github.com/linuxserver/docker-wireguard)). Add WireGuard peers or modify the AllowedIPs of existing ones, show peer config QR codes, and delete peers with:
+You can (re)configure WireGuard peers; add WireGuard peers or modify the AllowedIPs of existing ones, show peer config QR codes, and delete peers with:
 
 ```{bash}
-sudo bash wireguard/add.sh <peer_name> [option]
+sudo bash wireguard/add.sh <peer_name> [option] [-- args]
 sudo bash wireguard/get.sh <peer_name>
-sudo bash wireguard/del.sh <peer_name>
+sudo bash wireguard/del.sh <peer_name> [args]
 ```
 
 By default, `add.sh` sets the peer to route outgoing traffic through the VPN. You can change this default by modifying AllowedIPs in `compose.yml`. The option it takes may be one of:
@@ -110,10 +116,10 @@ By default, `add.sh` sets the peer to route outgoing traffic through the VPN. Yo
 -o, --outgoing    Route outgoing traffic through the VPN
 ```
 
-After running `add.sh` on a HaaS to create its SaaH peer, create an `SERVER_ALLOWEDIPS_PEER_[SaaH]` environment variable -- using the peer's name sans the brackets -- for the WireGuard service with the difference of `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1` and the peer's IP. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty.
+The args are passed to `re/start.sh`.
 
 > [!NOTE]
-> While `start.sh` brings everything up, `restart.sh` only restarts WireGuard unless you first export `CLS_WG_ONLY=false`.
+> While `start.sh` brings everything up, `restart.sh` only restarts WireGuard unless `CLS_WG_ONLY=false` is exported first.
 
 > [!TIP]
 > Don't forget to share an updated config with its peer.

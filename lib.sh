@@ -86,11 +86,6 @@ stop_hostapd() {
     aps=$(sudo find /var/run/hostapd -type s 2>&1 | grep -oP '(?<=/var/run/hostapd/).+')
     ps -aux | grep -P "^[^-]+hostapd$2" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
 
-    if [ -z "$1" ]; then
-        sudo sed -i '/# subnets for hostapd/q' dhcp/dhcpd.conf
-        grep -q "subnets for hostapd" dhcp/dhcpd.conf || echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
-    fi
-
     for wiface in $1 $aps; do
         [[ -z "$1" || "$1" == "$wiface" ]] || continue
         sudo rm -rf /var/run/hostapd/"$wiface" &>/dev/null
@@ -99,6 +94,35 @@ stop_hostapd() {
 }
 
 start_hostapd() {
+    (
+        until [ -n "$CLS_LOCAL_IFACE" ]; do
+            get_local_ip
+            sleep 1
+        done
+        [ ! -f /etc/resolv.conf ] || sudo rm -f /etc/resolv.conf
+        (
+            cat resolv.conf
+            (
+                nmcli dev show "$CLS_LOCAL_IFACE" | grep DNS | grep -oP '\S+$'
+            ) | while read -r ip; do echo "nameserver $ip"; done
+            (
+                nmcli dev show "$CLS_LOCAL_IFACE" | grep DOMAIN | grep -oP '\S+$' || echo .
+            ) | while read -r name; do echo "search $name"; done
+        ) | sudo tee /etc/resolv.conf >/dev/null
+        sudo tc qdisc del dev "$CLS_LOCAL_IFACE" root &>/dev/null
+        sudo tc qdisc replace dev "$CLS_LOCAL_IFACE" root cake "$([ -z "$CLS_BANDWIDTH" ] && echo diffserv8 || echo "bandwidth $CLS_BANDWIDTH diffserv8")" nat docsis ack-filter
+        sudo busctl --system set-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled "b" 0 2>/dev/null
+        (crontab -l 2>/dev/null | grep -Fv "/ddns.sh &") | crontab -
+
+        if [ -n "$CLS_DYN_DNS" ]; then
+            (
+                crontab -l 2>/dev/null
+                echo "0,5,10,15,20,25,30,35,40,45,50,55 * * * * /usr/bin/sleep 10 ; /usr/bin/bash $this_dir/ddns.sh &"
+            ) | crontab -
+            sudo bash ddns.sh
+        fi
+    ) &
+
     if [ -n "$CLS_WIFACE" ]; then
         (
             until iwconfig "$CLS_WIFACE" | grep -q 'Bit Rate='; do sleep 1; done
@@ -109,6 +133,8 @@ start_hostapd() {
                 sudo macchanger -m "$set_mac" "$CLS_WIFACE"
                 sudo ifconfig "$CLS_WIFACE" up
             fi
+
+            sudo iw dev "$CLS_WIFACE" set power_save off
         ) &
     fi
 
@@ -205,9 +231,9 @@ dig() {
 
 direct_domain() {
     local ichi
-    ichi=$(dig "$1")
+    ichi=$(dig "$(grep -oP '((?<=http:\/\/)|(?<=https:\/\/)).+?[^/?]+' <<<"$1")")
     for ip in $ichi; do ip r | grep -q "$ip" || sudo ip route add "$ip" via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE" &>/dev/null; done
-    $2 2>/dev/null
+    $1 2>/dev/null
     for ip in $ichi; do ! ip r | grep -q "$ip" || sudo ip route del "$ip" &>/dev/null; done
 }
 
@@ -218,7 +244,7 @@ get_server_ip() {
         if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]]; then
             server_ip=$(dig "$SERVERURL" | tail -n1)
         else
-            server_ip=$(direct_domain icanhazip.com "curl https://icanhazip.com" | tail -n1)
+            server_ip=$(direct_domain "curl https://icanhazip.com" | tail -n1)
         fi
     fi
 
