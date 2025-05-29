@@ -135,7 +135,7 @@ start_hostapd() {
             fi
 
             sudo iw dev "$CLS_WIFACE" set power_save off
-            ip a show "$CLS_INTERN_IFACE" | grep -q UP || sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
+            ip a show "$CLS_INTERN_IFACE" | grep -q UP || exec sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
         ) &
     fi
 
