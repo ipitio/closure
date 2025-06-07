@@ -160,7 +160,7 @@ else
     echo "grep -qP '\d+' <<<\"\$SSH_CLIENT\" || sudo $active_path $CLS_STARTUP_ARGS" | sudo tee -a /home/"$CLS_ACTIVE_USER"/.profile >/dev/null
 fi
 
-if $CLS_DOCKER; then
+if [ "$CLS_DOCKER" = "true" ]; then
     sudo mkdir -p /etc/docker
     echo '{
     "ipv6": true,

@@ -46,12 +46,15 @@ sudo() {
     fi
 }
 
+# shellcheck disable=SC2120
 wg() {
-    if $CLS_DOCKER; then
-        sudo docker exec wireguard wg "$@"
-    else
-        command wg "$@"
-    fi
+    sudo bash <<EOF
+if [ "$CLS_DOCKER" = "true" ]; then
+    docker exec wireguard wg ${@@Q}
+else
+    command wg ${@@Q}
+fi
+EOF
 }
 
 get_local_iface() {
@@ -64,6 +67,7 @@ get_local_ip() {
     ip r | grep -q '^default via' || sudo ip r add default via "$(nmcli dev show "$CLS_LOCAL_IFACE" | grep -oP '((?<=GATEWAY:)[^-]*|/0.*?= [^,]+)' | grep -oE '[^ ]+$' | head -n1)" dev "$CLS_LOCAL_IFACE" &>/dev/null
     CLS_GATEWAY=$(ip r | grep -oP '^default via \K\S+')
     CLS_LOCAL_IP=$(ip a show "$CLS_LOCAL_IFACE" | grep -oP 'inet \K\S+' | cut -d/ -f1)
+    wg | grep -oE 'endpoint: [^:]+' | grep -oE '\S+$' | while read -r endpoint; do route -n | grep -q "$endpoint" || sudo route add -net "$endpoint" netmask 255.255.255.255 gw "$CLS_GATEWAY" &>/dev/null; done
 }
 
 restart_isc() {

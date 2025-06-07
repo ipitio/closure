@@ -20,7 +20,7 @@ if ! ${CLS_WG_ONLY:-false}; then
     if [ -n "$WIFI" ]; then
         WIFI=${WIFI//\"/\\\"}
 
-        if $ADD; then
+        if [ "$ADD" = "true" ]; then
             ! $PORTAL || jq "(. | select([\"$WIFI\"]) | .[\"$WIFI\"]) = \"$MAC\"" config/wifis.json | sudo tee config/new.wifis.json
             [[ ! -f config/new.wifis.json || ! -s config/new.wifis.json ]] || sudo mv -f config/new.wifis.json config/wifis.json
             wpa_ssid=".network.wifis.[\"$CLS_WIFACE\"].access-points.[\"$WIFI\"]"
@@ -70,7 +70,7 @@ if ! ${CLS_WG_ONLY:-false}; then
     eval "start_hostapd ${*@Q}" &
 fi
 
-if $CLS_DOCKER; then
+if [ "$CLS_DOCKER" = "true" ]; then
     sudo systemctl enable --now docker
 
     for table in nat filter; do
@@ -82,7 +82,7 @@ if $CLS_DOCKER; then
 else
     sudo sysctl -w net.ipv4.ip_forward=0
     sudo sysctl -w net.ipv6.conf.all.forwarding=0
-    for iface in $(sudo wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
+    for iface in $(wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
 fi
 
 eval "cast pre-up ${*@Q}"
@@ -104,15 +104,9 @@ eval "cast pre-up ${*@Q}"
         get_local_ip
 
         if ! ip rule show table 7 2>/dev/null | grep -qP '0x55' || ! ip route show table 7 2>/dev/null | grep -q default; then
-            ip route show table 7 2>/dev/null | grep -q default || sudo ip route add default via "$(ip r | grep -oP 'default via \K\S+')" dev "$CLS_LOCAL_IFACE" table 7 &>/dev/null
+            ip route show table 7 2>/dev/null | grep -q default || sudo ip route add default via "$CLS_GATEWAY" dev "$CLS_LOCAL_IFACE" table 7 &>/dev/null
             ip rule show table 7 2>/dev/null | grep -qP '0x55' || sudo ip rule add fwmark 0x55 table 7 &>/dev/null
             sudo ip route flush cache
-        fi
-
-        if [ -n "$CLS_EXTERN_IFACE" ] && [[ "$CLS_TYPE_NODE" =~ (hub|saah) ]] && ip a show "$CLS_EXTERN_IFACE" | grep -q UP; then
-            sudo wg | grep -oE 'endpoint: [^:]+' | grep -oE '\S+$' | while read -r endpoint; do
-                route -n | grep -q "$endpoint" || sudo route add -net "$endpoint" netmask 255.255.255.255 gw "$(ip r | grep -oP 'default via \K\S+')" &>/dev/null
-            done
         fi
 
         if ! is_ip "$SERVERURL"; then
@@ -133,7 +127,7 @@ eval "cast pre-up ${*@Q}"
     exec sudo CLS_WG_ONLY=false bash restart.sh ${@@Q}
 ) &
 
-if $CLS_DOCKER; then
+if [ "$CLS_DOCKER" = "true" ]; then
     sudo systemctl stop isc-dhcp-server
 
     # prod starts wg

@@ -18,7 +18,7 @@ if ! grep -q "$1" <<<"$PEERS"; then
     PEERS="$new_peers"
     sudo mv -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf.bak
 
-    if $CLS_DOCKER; then
+    if [ "$CLS_DOCKER" = "true" ]; then
         sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
     else
         bash wireguard/etc/run
