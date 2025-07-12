@@ -171,7 +171,7 @@ if [ "$CLS_DOCKER" = "true" ]; then
     sudo docker compose build
 fi
 
-sudo sed -i 's/#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
+sudo sed -i 's/\#\?DNSStubListener=.*/DNSStubListener=no/g' /etc/systemd/resolved.conf
 sudo systemctl restart systemd-resolved
 sudo systemctl disable isc-dhcp-server &>/dev/null
 sudo systemctl stop hostapd &>/dev/null

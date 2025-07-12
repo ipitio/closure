@@ -5,9 +5,9 @@ this_dir=$(dirname "$(readlink -f "$0")")
 pushd "$this_dir" || exit 1
 source "lib.sh"
 
-eval "cast pre-down ${*@Q}"
 sudo sysctl -w net.ipv4.ip_forward=0
 sudo sysctl -w net.ipv6.conf.all.forwarding=0
+eval "cast pre-down ${*@Q}"
 sudo docker ps | grep -q wireguard && sudo docker compose stop wireguard || sudo wg-quick down "$CLS_INTERN_IFACE"
 
 # shellcheck disable=SC2009

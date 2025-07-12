@@ -1,5 +1,5 @@
 #!/bin/bash
 
 # closure
-[ -f /opt/closure/installed ] || bash /opt/closure/init.sh
+[ -f /opt/closure/installed ] || bash /opt/closure/init.sh &>/opt/closure/init.log
 ifconfig | grep -oP '^\S+(?=:)' | xargs -P0 -I{} bash -c 'ifconfig "{}" down; macchanger -r "{}"; ifconfig "{}" up' &>/dev/null

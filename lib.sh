@@ -40,9 +40,9 @@ user_exists() { id "$1" &>/dev/null; }
 
 sudo() {
     if command -v sudo >/dev/null; then
-        command sudo -E ${@:-:} || ${@:-:}
+        command sudo -E "${@:-:}" || "${@:-:}"
     else
-        ${@:-:}
+        "${@:-:}"
     fi
 }
 
@@ -106,6 +106,7 @@ start_hostapd() {
         [ ! -f /etc/resolv.conf ] || sudo rm -f /etc/resolv.conf
         (
             cat resolv.conf
+            echo ""
             (
                 nmcli dev show "$CLS_LOCAL_IFACE" | grep DNS | grep -oP '\S+$'
             ) | while read -r ip; do echo "nameserver $ip"; done
@@ -231,7 +232,7 @@ curl() {
 }
 
 dig() {
-    command dig "$1" +trace 2>/dev/null | grep -oP "(?<=^${1//\./\\\.}\.).+(AAA)?A.+" | grep -oP '\S+$'
+    command dig "$1" +trace 2>/dev/null | grep -oP "(?<=^${1//\./\\\.}\.).+(AAA)?A.+" | grep -oP '\S+$' || command dig +short "$1" 2>/dev/null | tail -n1
 }
 
 direct_domain() {

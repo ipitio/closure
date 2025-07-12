@@ -53,7 +53,7 @@ Keep in mind that:
 - Unbound connects to Cloudflare's servers using DoT by default, but you can uncomment its volume in `compose.yml` to use it as a recursive resolver.
 - To configure Pi-hole more extensively, such as by enabling DHCP, see the [Pi-hole documentation](https://github.com/pi-hole/docker-pi-hole/tree/2024.07.0?tab=readme-ov-file#environment-variables).
 - The hooks may be useful, for example, if you'd like to coordinate with an external, outbound VPN on a Hub or SaaH. All arguments given to `start.sh`and `stop.sh` are passed to their respective hooks.
-- For AP+STA mode, define as many `X@[iface].conf` files as bands the device supports, where X is an integer band.
+- For AP+STA mode, you can define as many `X@[iface].conf` files as bands the device supports, where X is an integer band.
 
 > [!NOTE]
 > The WireGuard service in the Compose file must be configured whether or not you'll use Docker ([docs](https://docs.linuxserver.io/images/docker-wireguard)).
@@ -68,7 +68,7 @@ Create or update a node in two or three steps:
 1. Install the package by either:
     - pasting the one-liner or block below;
     - downloading it from [Releases](https://github.com/ipitio/closure/releases); or
-    - copying this repo to `/opt/closure`, then ensuring `rc.local` is executable and moved to `/etc`.
+    - copying this repo to `/opt/closure`, then ensuring the executable `rc.local` is moved to `/etc`.
 
 ```{bash}
 curl -sSLNZ https://ipitio.github.io/closure/i | sudo bash

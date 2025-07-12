@@ -59,7 +59,7 @@ if ! ${CLS_WG_ONLY:-false}; then
     sudo cp -f netplan.yml /etc/netplan/99_config.yaml
     sudo chmod 0600 /etc/netplan/99_config.yaml
     stop_hostapd
-    sudo sed -i '/# subnets for hostapd/q' dhcp/dhcpd.conf
+    sudo sed -i '/\# subnets for hostapd/q' dhcp/dhcpd.conf
     grep -q "subnets for hostapd" dhcp/dhcpd.conf || echo -e "# subnets for hostapd are generated automatically" | sudo tee -a dhcp/dhcpd.conf >/dev/null
     ifconfig | grep -oP '^\S+(?=:)' | while read -r iface; do
         sudo ifconfig "$iface" down
@@ -83,6 +83,8 @@ else
     sudo sysctl -w net.ipv4.ip_forward=0
     sudo sysctl -w net.ipv6.conf.all.forwarding=0
     for iface in $(wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
+    wg | grep -oP '(?<=^interface: ).+' | while read -r iface; do sudo wg-quick down "$iface" &>/dev/null; done
+    sudo ls wireguard/config/wg_confs | grep -oP '.+\.conf$' | while read -r conf; do sudo wg-quick down "${conf%.conf}"; done
 fi
 
 eval "cast pre-up ${*@Q}"

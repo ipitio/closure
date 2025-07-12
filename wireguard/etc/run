@@ -1,10 +1,11 @@
-#!/usr/bin/with-contenv bash
+#!/bin/bash
 # shellcheck shell=bash
 # shellcheck disable=SC2016,SC1091,SC2183
 # https://github.com/linuxserver/docker-wireguard/blob/master/root/etc/s6-overlay/s6-rc.d/init-wireguard-confs/run
 # This file has been modified from the above source: paths were changed to be relative to the project root
 
 mkdir -p wireguard/config/wg_confs
+mkdir -p wireguard/config/templates
 
 # prepare templates
 if [[ ! -f wireguard/config/templates/server.conf ]]; then
