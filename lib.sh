@@ -232,7 +232,7 @@ curl() {
 }
 
 dig() {
-    command dig "$1" +trace 2>/dev/null | grep -oP "(?<=^${1//\./\\\.}\.).+(AAA)?A.+" | grep -oP '\S+$' || command dig +short "$1" 2>/dev/null | tail -n1
+    command dig +short "$1" 2>/dev/null | tail -n1
 }
 
 direct_domain() {
