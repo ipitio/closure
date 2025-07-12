@@ -38,11 +38,11 @@ if ! ${CLS_WG_ONLY:-false}; then
         if [ -n "$CLS_OTG_g_" ] && ! grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
             grep -q "dtoverlay=dwc2" /boot/firmware/config.txt || echo "dtoverlay=dwc2" | sudo tee -a /boot/firmware/config.txt
             sudo sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=peripheral/g" /boot/firmware/config.txt
-            grep -q "dwc_otg.lpm_enable=0" /boot/firmware/cmdline.txt || echo "dwc_otg.lpm_enable=0" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
-            grep -q "modules-load=" /boot/firmware/cmdline.txt || echo "modules-load=" | sudo tee -a /boot/firmware/cmdline.txt >/dev/null
+            grep -q "dwc_otg.lpm_enable=" /boot/firmware/cmdline.txt || sudo sed -i '$s/$/ dwc_otg.lpm_enable=/' /boot/firmware/cmdline.txt
+            grep -q "modules-load=" /boot/firmware/cmdline.txt || sudo sed -i '$s/$/ modules-load=/' /boot/firmware/cmdline.txt
             grep -qP "modules-load=.*dwc2" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,dwc2/g" /boot/firmware/cmdline.txt
             grep -qP "modules-load=.*g_$CLS_OTG_g_" /boot/firmware/cmdline.txt || sudo sed -i "s/\(modules-load=[^ ]*\)/\1,g_$CLS_OTG_g_/g" /boot/firmware/cmdline.txt
-            ! grep -qP ",\s" /boot/firmware/cmdline.txt || sudo sed -i "s/,\s+/ /g" /boot/firmware/cmdline.txt
+            sudo sed -i "s/,\s+/ /g; s/=,/=/g; s/cfg80211.ieee80211_regdom=\S*/cfg80211.ieee80211_regdom=PA/g; s/dwc_otg.lpm_enable=\S*/dwc_otg.lpm_enable=0/g" /boot/firmware/cmdline.txt
             sudo reboot
         elif [ -z "$CLS_OTG_g_" ] && grep -q "dtoverlay=dwc2,dr_mode=peripheral" /boot/firmware/config.txt; then
             sudo sed -i "s/dtoverlay=dwc2.*/dtoverlay=dwc2,dr_mode=host/g" /boot/firmware/config.txt
@@ -84,7 +84,6 @@ else
     sudo sysctl -w net.ipv6.conf.all.forwarding=0
     for iface in $(wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
     wg | grep -oP '(?<=^interface: ).+' | while read -r iface; do sudo wg-quick down "$iface" &>/dev/null; done
-    sudo ls wireguard/config/wg_confs | grep -oP '.+\.conf$' | while read -r conf; do sudo wg-quick down "${conf%.conf}"; done
 fi
 
 eval "cast pre-up ${*@Q}"
@@ -157,8 +156,10 @@ else
         sudo cp -f "wireguard/config/wg_confs/$conf" "$config"
         sudo chmod 600 "$config"
         sudo chown root:root "$config"
+        sudo wg-quick down "$iface"
         sudo wg-quick up "$iface"
     done
+    restart_isc
 fi
 
 if [[ "$CLS_TYPE_NODE" == "haas" && -n "$CLS_SAAH_PEER" ]]; then
