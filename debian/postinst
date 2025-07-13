@@ -11,5 +11,5 @@ fi
 
 grep -q '^# closure' /etc/rc.local || sed 1,1d rc.local | tee -a /etc/rc.local >/dev/null
 chmod +x /etc/rc.local
-[ -f /opt/closure/installed ] || rm -rf /opt/closure/installed
+[ ! -f /opt/closure/installed ] || rm -rf /opt/closure/installed
 popd || exit 1

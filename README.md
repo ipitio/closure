@@ -86,7 +86,7 @@ sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -qq closure
 ```
 
-2. Edit the files above and reboot. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster. The SaaH peer will be created on a HaaS if it doesn't exist.
+2. Edit the files above and reboot. Reboot after upgrades, too. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster. The SaaH peer will be created on a HaaS if it doesn't exist.
 3. On a Hub or HaaS, add Spokes you didn't define in `compose.yml` by running `add.sh` as described below.
 
 Set a Hub or HaaS up first, so SaaH and Spoke peer configurations can be generated, then drop those in their `wireguard/config/wg_confs` directories before rebooting them. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty, if you need it.
