@@ -93,8 +93,16 @@ eval "cast pre-up ${*@Q}"
 
     until ip a show "$CLS_INTERN_IFACE" | grep -q UP && ([[ ! "$CLS_TYPE_NODE" =~ spoke ]] || ping -c1 "$CLS_WG_SERVER" >/dev/null); do
         get_local_ip
-        new_ip=$(get_server_ip)
-        ! is_ip "$new_ip" || og_server_ip="$new_ip"
+        new_ip=$(get_server_ip 1)
+
+        if is_ip "$new_ip"; then
+            if is_ip "$og_server_ip"; then
+                [ "$og_server_ip" = "$new_ip" ] || exec sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
+            else
+                og_server_ip="$new_ip"
+            fi
+        fi
+
         sleep 1
     done
 

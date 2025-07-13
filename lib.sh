@@ -220,7 +220,7 @@ curl() {
     local result
 
     while [ "$i" -lt "$max_attempts" ]; do
-        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
+        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 --retry 5 --retry-delay 1 --retry-all-errors "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
         sleep "$wait_time"
         ((i++))
@@ -232,7 +232,7 @@ curl() {
 }
 
 dig() {
-    command dig +short "$1" 2>/dev/null | tail -n1
+    [ -z "$2" ] && command dig +short "$1" 2>/dev/null | tail -n1 || command dig "$1" +trace 2>/dev/null | grep -oP "(?<=^${1//\./\\\.}\.).+(AAA)?A.+" | grep -oP '\S+$'
 }
 
 direct_domain() {
@@ -248,7 +248,7 @@ get_server_ip() {
 
     if ! is_ip "$server_ip"; then
         if [[ "$CLS_TYPE_NODE" =~ (spoke|saah) ]]; then
-            server_ip=$(dig "$SERVERURL" | tail -n1)
+            server_ip=$(dig "$SERVERURL" "$1" | tail -n1)
         else
             server_ip=$(direct_domain "curl https://icanhazip.com" | tail -n1)
         fi
