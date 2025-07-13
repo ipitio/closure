@@ -1,5 +1,6 @@
 #!/bin/bash
 
 # closure
+[ ! -f /opt/closure/init.log ] || mv /opt/closure/init.log /opt/closure/init.log.old 2>/dev/null
 [ -f /opt/closure/installed ] || bash /opt/closure/init.sh &>/opt/closure/init.log
 ifconfig | grep -oP '^\S+(?=:)' | xargs -P0 -I{} bash -c 'ifconfig "{}" down; macchanger -r "{}"; ifconfig "{}" up' &>/dev/null
