@@ -11,7 +11,7 @@ sudonot() {
 }
 
 apt_install() {
-    if ! dpkg -l "$@" >/dev/null 2>&1; then
+    if ! dpkg -s "$@" &>/dev/null; then
         sudonot apt-get update
         export DEBIAN_FRONTEND=noninteractive
         sudonot apt-get install -yqq "$@"
@@ -28,13 +28,13 @@ ps -aux | grep -P "^[^-]+$this_dir/init.sh" | awk '{print $2}' | while read -r p
 mv -n examples/* . 2>/dev/null
 rmdir examples 2>/dev/null
 
-if ! dpkg -l apt-fast >/dev/null 2>&1; then
+if ! dpkg -s apt-fast &>/dev/null; then
     sudonot add-apt-repository -y ppa:apt-fast/stable
     sudonot apt-get update
     sudonot DEBIAN_FRONTEND=noninteractive apt-get install -yq apt-fast
 fi
 
-if ! dpkg -l docker-ce >/dev/null 2>&1; then
+if ! dpkg -s docker-ce &>/dev/null; then
     apt_install ca-certificates curl
     sudonot install -m 0755 -d /etc/apt/keyrings
     sudonot curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -42,7 +42,7 @@ if ! dpkg -l docker-ce >/dev/null 2>&1; then
     echo "deb [trusted=yes arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudonot tee /etc/apt/sources.list.d/docker.list >/dev/null
 fi
 
-if ! dpkg -l closure >/dev/null 2>&1; then
+if ! dpkg -s closure &>/dev/null; then
     sudonot mkdir -m 0755 -p /etc/apt/keyrings/
     wget -qO- https://ipitio.github.io/closure/gpg.key | gpg --dearmor | sudonot tee /etc/apt/keyrings/closure.gpg >/dev/null
     echo "deb [signed-by=/etc/apt/keyrings/closure.gpg] https://ipitio.github.io/closure master main" | sudonot tee /etc/apt/sources.list.d/closure.list &>/dev/null

@@ -15,5 +15,7 @@ fi
 # Verbose boot
 if [ -f /etc/default/grub ] && grep -q "quiet splash" /etc/default/grub; then
     sudo sed -i 's/quiet splash//g' /etc/default/grub
+    grep -q "GRUB_CMDLINE_LINUX_DEFAULT" /etc/default/grub || echo "GRUB_CMDLINE_LINUX_DEFAULT=\"\"" | sudo tee -a /etc/default/grub >/dev/null
+    grep -q "nosplash debug --verbose" /etc/default/grub || echo "GRUB_CMDLINE_LINUX=\"nosplash debug --verbose\"" | sudo tee -a /etc/default/grub >/dev/null
     sudo update-grub
 fi
