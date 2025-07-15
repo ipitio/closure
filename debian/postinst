@@ -2,7 +2,6 @@
 # shellcheck disable=SC1003
 
 pushd /opt/closure || exit 1
-cp rc.local /etc/rc.local rc.local.bak
-chmod +x /etc/rc.local
+[ ! -f env.sh ] || cp rc.local /etc/rc.local
 [ ! -f /opt/closure/installed ] || rm -rf /opt/closure/installed
 popd || exit 1

@@ -63,12 +63,14 @@ Keep in mind that:
 
 ### Deployment
 
-Create or update a node in two or three steps:
+Create a node in two or three steps (or update in one). The initial reboot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster. For example, the SaaH peer will be created on a HaaS if it doesn't exist. This means that you should set a Hub or HaaS up first, so SaaH and Spoke peer configurations can be generated. Drop those in their `wireguard/config/wg_confs` directories before rebooting. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty, if you need it.
 
-1. Install the package by either:
+1. Install or update the package by either:
     - pasting the one-liner or block below;
     - downloading it from [Releases](https://github.com/ipitio/closure/releases); or
-    - copying this repo to `/opt/closure`, then ensuring the executable `rc.local` is moved to `/etc`.
+    - copying this repo to `/opt/closure`.
+
+If you're installing on top of an existing configuration with one of the first two options, or updating by running `sudo apt upgrade -y closure`, `rc.local` will be copied for you; skip step 2 and reboot after this step.
 
 ```{bash}
 curl -sSLNZ https://ipitio.github.io/closure/i | sudo bash
@@ -86,10 +88,8 @@ sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -qq closure
 ```
 
-2. Edit the files above and reboot. Reboot after upgrades, too. This boot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster. The SaaH peer will be created on a HaaS if it doesn't exist.
-3. On a Hub or HaaS, add Spokes you didn't define in `compose.yml` by running `add.sh` as described below.
-
-Set a Hub or HaaS up first, so SaaH and Spoke peer configurations can be generated, then drop those in their `wireguard/config/wg_confs` directories before rebooting them. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty, if you need it.
+2. Edit the files above, copy `rc.local` to `/etc`, and reboot.
+3. On a Hub or HaaS, add Spokes you didn't define yet by running `add.sh` as described below.
 
 > [!NOTE]
 > Any arguments passed to `kickstart.sh` are passed to `start.sh`, which can add or edit wifi networks -- useful on a Raspberry Pi Zero (2) W! See the top of `start.sh` for the arguments it takes.
