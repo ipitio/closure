@@ -71,6 +71,15 @@ yq -V | grep -q mikefarah &>/dev/null || {
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --noninteractive flathub tv.kodi.Kodi
 [ ! -f /.dockerenv ] || exit 0
+
+# wifi performance
+echo "[connection]
+# Values are 0 (use default), 1 (ignore/don't touch), 2 (disable) or 3 (enable).
+wifi.powersave = 2
+" | sudo tee /etc/NetworkManager/conf.d/wifi-powersave.conf >/dev/null
+sudo cp -f /etc/NetworkManager/conf.d/wifi-powersave.conf /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
+[ ! -f /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf ] || sudo sed -i "s/uri=.*$/uri=/" /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf
+source "bs.sh"
 source "lib.sh"
 
 # general performance
@@ -80,32 +89,6 @@ while IFS= read -r line; do
 done <sysctl.conf
 grep -E '(#|.+=)' /etc/sysctl.conf | awk '!seen[$0]++' | sudo tee /etc/sysctl.conf >/dev/null
 sudo sysctl -p
-
-# wifi performance
-echo "[connection]
-# Values are 0 (use default), 1 (ignore/don't touch), 2 (disable) or 3 (enable).
-wifi.powersave = 2
-" | sudo tee /etc/NetworkManager/conf.d/wifi-powersave.conf >/dev/null
-sudo cp -f /etc/NetworkManager/conf.d/wifi-powersave.conf /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
-[ ! -f /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf ] || sudo sed -i "s/uri=.*$/uri=/" /lib/NetworkManager/conf.d/20-connectivity-ubuntu.conf
-
-if grep -q Raspberry /proc/device-tree/model; then
-
-    # wifi 2.4GHz performance
-    grep -q dtoverlay=disable-bt /boot/firmware/config.txt || echo "dtoverlay=disable-bt" | sudo tee -a /boot/firmware/config.txt >/dev/null
-
-    if [ ! -f /etc/modprobe.d/brcmfmac.conf ]; then
-        # wifi chip bug: https://github.com/raspberrypi/linux/issues/6049#issuecomment-2642566713
-        echo "options brcmfmac roamoff=1 feature_disable=0x202000" | sudo tee /etc/modprobe.d/brcmfmac.conf >/dev/null
-        sudo systemctl restart systemd-modules-load
-    fi
-fi
-
-# Verbose boot
-if [ -f /etc/default/grub ] && grep -q "quiet splash" /etc/default/grub; then
-    sudo sed -i 's/quiet splash//g' /etc/default/grub
-    sudo update-grub
-fi
 
 # Ensure users exist
 for user in $CLS_ACTIVE_USER $CLS_SCRIPT_USER; do

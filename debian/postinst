@@ -1,7 +1,9 @@
 #!/bin/bash
-# shellcheck disable=SC1003
+# shellcheck disable=SC1003,SC1091
 
 pushd /opt/closure || exit 1
-[ ! -f env.sh ] || cp rc.local /etc/rc.local
-[ ! -f /opt/closure/installed ] || rm -rf /opt/closure/installed
+[[ ! -f /etc/rc.local || -f /etc/rc.local.bak ]] || sudo mv -f /etc/rc.local /etc/rc.local.bak
+cp rc.local /etc/rc.local
+[ ! -f installed ] || rm -rf installed
+source "bs.sh"
 popd || exit 1
