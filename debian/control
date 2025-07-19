@@ -4,13 +4,15 @@ Homepage: https://github.com/ipitio/closure
 Standards-Version: 3.9.2
 
 Package: closure
-Version: 1.6.30
+Version: 1.7
 Maintainer: ipitio <21136719+ipitio@users.noreply.github.com>
 Depends: curl, flatpak, gpg, hostapd, isc-dhcp-server, iw, macchanger, netplan.io, network-manager, net-tools, qrencode, rfkill, wireguard, wireless-tools, wget
 Recommends: containerd.io, docker-ce, docker-ce-cli, docker-buildx-plugin, docker-compose-plugin
 Suggests: build-essential, byobu, dkms, iperf3, nmap, tmux, traceroute, wmctrl
 Copyright: debian/copyright
 Readme: debian/README.Debian
+Postinst: debian/postinst
+Prerm: debian/prerm
 Links: /usr/share/doc/closure /opt/closure/debian
 Description: Provision a fresh Ubuntu install as a Hub, Spoke, or hybrid of both!
  You can run WireGuard with Docker or on the host.

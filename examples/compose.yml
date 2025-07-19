@@ -48,7 +48,7 @@ services:
       dockerfile_inline: |
         FROM ghcr.io/arevindh/pihole-speedtest:latest
         RUN apt-get install -y php-cli php-sqlite3 php-intl php-curl wget || { apt-get update && apt-get install -y php-cli php-sqlite3 php-intl php-curl wget; }
-        RUN curl -sSLNZ https://raw.githubusercontent.com/jacklul/pihole-updatelists/master/install.sh | sudo bash -s docker
+        RUN curl -sSLNZ https://raw.githubusercontent.com/jacklul/pihole-updatelists/pihole-v5/install.sh | sudo bash -s docker
     container_name: pihole
     restart: unless-stopped
     platform: linux/amd64

@@ -1,3 +1,9 @@
 #!/bin/bash
 
-: # TODO
+pushd /opt/closure || exit 1
+[ ! -f installed ] || rm -rf installed
+! grep /opt/closure /etc/rc.local &>/dev/null || [ ! -f /etc/rc.local.bak ] || mv -f /etc/rc.local.bak /etc/rc.local
+! grep /opt/closure /etc/rc.local &>/dev/null || rm -f /etc/rc.local
+grep -oP '^(Files:)? [^ ]+(?= /opt/closure)' debian/control | grep -oP '(?<= ).+' | while read -r file; do [ ! -f "$file" ] || rm -f "$file"; done
+find . -type d -empty -delete
+popd || exit 1
