@@ -20,7 +20,7 @@ if ! grep -q "$1" <<<"$PEERS"; then
 
     if [ "$CLS_DOCKER" = "true" ]; then
         export CLS_WG_ONLY=true
-        sudo bash restart.sh ${@@Q}
+        sudo bash restart.sh ${@@Q} 2>/dev/null
     else
         bash wireguard/etc/run
     fi
@@ -62,5 +62,5 @@ esac
 
 echo "$conf" | sudo tee "$path.conf" >/dev/null || exit 1
 CLS_WG_ONLY=true
-sudo bash restart.sh ${@@Q}
+sudo bash restart.sh ${@@Q} 2>/dev/null
 popd &>/dev/null || exit 1

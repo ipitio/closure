@@ -5,15 +5,7 @@
 # This file has been modified from the above source: paths were changed to be relative to the project root
 
 mkdir -p wireguard/config/wg_confs
-mkdir -p wireguard/config/templates
 
-# prepare templates
-if [[ ! -f wireguard/config/templates/server.conf ]]; then
-    cp wireguard/defaults/server.conf wireguard/config/templates/server.conf
-fi
-if [[ ! -f wireguard/config/templates/peer.conf ]]; then
-    cp wireguard/defaults/peer.conf wireguard/config/templates/peer.conf
-fi
 # add preshared key to user templates (backwards compatibility)
 if ! grep -q 'PresharedKey' wireguard/config/templates/peer.conf; then
     sed -i 's|^Endpoint|PresharedKey = \$\(cat wireguard/config/\${PEER_ID}/presharedkey-\${PEER_ID}\)\nEndpoint|' wireguard/config/templates/peer.conf

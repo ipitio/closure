@@ -13,7 +13,7 @@ source "lib.sh"
 pids=$(ps -o ppid=$$)
 ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
 
-if ! ${CLS_WG_ONLY:-false}; then
+if [ "${CLS_WG_ONLY:-false}" = "false" ]; then
     [ -d config ] || sudo mkdir config
     [[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
 
@@ -137,10 +137,9 @@ eval "cast pre-up ${*@Q}"
 ) &
 
 if [ "$CLS_DOCKER" = "true" ]; then
-    sudo systemctl stop isc-dhcp-server
-
     # prod starts wg
-    if ! ip a show "$CLS_INTERN_IFACE" | grep -q UP; then
+    if [ "${CLS_WG_ONLY:-false}" = "false" ] || ! sudo docker ps | grep -qE "pihole.*Up"; then
+        sudo docker compose down
         sudo systemctl restart docker
         sudo docker network prune -f
         until [ -n "$CLS_LOCAL_IP" ]; do
@@ -150,7 +149,6 @@ if [ "$CLS_DOCKER" = "true" ]; then
         sed -i "s/#\?- FTLCONF_LOCAL_IPV4=.*$/- FTLCONF_LOCAL_IPV4=$CLS_LOCAL_IP/" compose.yml
         sudo docker compose --profile prod up -d --force-recreate --remove-orphans
     elif ! sudo docker ps | grep -qE "wireguard.*Up"; then
-        sudo docker compose --profile prod up -d --force-recreate --remove-orphans
         sudo docker compose up -d wireguard
     fi
 else

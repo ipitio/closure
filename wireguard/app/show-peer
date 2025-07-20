@@ -18,6 +18,8 @@ for i in "$@"; do
   if grep -q "# ${PEER_ID}" wireguard/config/wg_confs/wg0.conf; then
     echo "PEER ${i} QR code:"
     qrencode -t ansiutf8 < wireguard/config/"${PEER_ID}"/"${PEER_ID}".conf
+    echo "PEER ${i} config:"
+    cat wireguard/config/"${PEER_ID}"/"${PEER_ID}".conf
   else
     echo "PEER ${i} is not active"
   fi

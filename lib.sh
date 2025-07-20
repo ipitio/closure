@@ -5,7 +5,7 @@
 set -a
 
 # Closure settings from env.sh
-this_dir=$(dirname "$(readlink -f "$0")")
+this_dir=$PWD
 source "$this_dir/env.sh"
 
 if [ -z "$CLS_TYPE_NODE" ]; then
