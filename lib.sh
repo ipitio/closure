@@ -187,7 +187,7 @@ start_hostapd() {
                         fi
 
                         sudo hostapd -i "$wiface" -P /run/hostapd.pid -B hostapd/"$config".conf
-                        sudo iw dev "$wiface" set power_save off
+                        sudo iw dev "$wiface" set power_save off 2>/dev/null
                         local octet
                         octet=$(ifconfig "$wiface" | grep -zoP '(?<=inet 10\.42\.)\S+(?=\.1)')
 
@@ -195,7 +195,8 @@ start_hostapd() {
                             octet=$((1 + $( (
                                 ifconfig | grep -zoP '(?<=10\.42\.)\S+(?=\.1)'
                                 echo 1
-                            ) | grep -v 255 | sort -ru | head -n1)))
+                            ) | grep -v 255 | sort -ru | head -n1))) 2>/dev/null
+                            [ -n "$octet" ] || octet=1
                             sudo ifconfig "$wiface" 10.42."$octet".1 netmask 255.255.255.0
                         fi
 

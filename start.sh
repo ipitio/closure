@@ -13,7 +13,7 @@ source "lib.sh"
 pids=$(ps -o ppid=$$)
 ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do grep -q "$pid" <<<"$pids" || sudo kill -9 "$pid" &>/dev/null; done
 
-if [ "${CLS_WG_ONLY:-false}" = "false" ]; then
+if [ ! "${CLS_WG_ONLY:-false}" = "true" ]; then
     [ -d config ] || sudo mkdir config
     [[ -f config/wifis.json && -s config/wifis.json ]] || echo "{}" | sudo tee config/wifis.json
 
@@ -79,13 +79,12 @@ if [ "$CLS_DOCKER" = "true" ]; then
             sudo ip6tables -L -t "$table" | grep -q "$chain" || sudo ip6tables -N "$chain" -t "$table"
         done
     done
-else
-    sudo sysctl -w net.ipv4.ip_forward=0
-    sudo sysctl -w net.ipv6.conf.all.forwarding=0
-    for iface in $(wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
-    wg | grep -oP '(?<=^interface: ).+' | while read -r iface; do sudo wg-quick down "$iface" &>/dev/null; done
 fi
 
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo sysctl -w net.ipv6.conf.all.forwarding=0
+for iface in $(wg | grep -oP '(?<=interface: ).+'); do sudo wg-quick down "$iface"; done
+wg | grep -oP '(?<=^interface: ).+' | while read -r iface; do sudo wg-quick down "$iface" &>/dev/null; done
 eval "cast pre-up ${*@Q}"
 
 (
@@ -138,8 +137,9 @@ eval "cast pre-up ${*@Q}"
 
 if [ "$CLS_DOCKER" = "true" ]; then
     # prod starts wg
-    if [ "${CLS_WG_ONLY:-false}" = "false" ] || ! sudo docker ps | grep -qE "pihole.*Up"; then
+    if [ ! "${CLS_WG_ONLY:-false}" = "true" ] || ! sudo docker ps | grep -qE "pihole.*Up"; then
         sudo docker compose down
+        sudo docker compose ps -aq | xargs -r sudo docker rm -f
         sudo systemctl restart docker
         sudo docker network prune -f
         until [ -n "$CLS_LOCAL_IP" ]; do
@@ -165,8 +165,9 @@ else
         sudo wg-quick down "$iface"
         sudo wg-quick up "$iface"
     done
-    restart_isc
 fi
+
+restart_isc
 
 if [[ "$CLS_TYPE_NODE" == "haas" && -n "$CLS_SAAH_PEER" ]]; then
     [[ -d "wireguard/config/peer_$CLS_SAAH_PEER" ]] || exec sudo bash wireguard/add.sh "$CLS_SAAH_PEER" -- ${@@Q}

@@ -8,7 +8,7 @@ source "lib.sh"
 sudo sysctl -w net.ipv4.ip_forward=0
 sudo sysctl -w net.ipv6.conf.all.forwarding=0
 eval "cast pre-down ${*@Q}"
-sudo docker ps | grep -q wireguard && sudo docker compose stop wireguard || sudo wg-quick down "$CLS_INTERN_IFACE"
+sudo docker ps | grep -q wireguard && sudo docker compose stop wireguard || sudo wg-quick down "$CLS_INTERN_IFACE" 2>/dev/null
 
 # shellcheck disable=SC2009
 ps -aux | grep -P "^[^-]+$this_dir/start.sh" | awk '{print $2}' | while read -r pid; do sudo kill -9 "$pid" &>/dev/null; done
