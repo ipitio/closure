@@ -176,7 +176,7 @@ if [[ "$CLS_TYPE_NODE" == "haas" && -n "$CLS_SAAH_PEER" ]]; then
 
     if is_ip "$saah_ip" && grep -qF "$saah_ip/32" "wireguard/config/wg_confs/$CLS_INTERN_IFACE.conf"; then
         sed -i "s|$saah_ip/32|0.0.0.0/1,128.0.0.0/1,::/1,8000::/1|" "wireguard/config/wg_confs/$CLS_INTERN_IFACE.conf"
-        sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
+        exec sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
     fi
 fi
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2001,SC2068
+# shellcheck disable=SC1091,SC2001,SC2034,SC2068
 
 [ -n "$1" ] || exit 1
 pushd "$(dirname "$(readlink -f "$0")")/.." || exit 1
@@ -11,7 +11,8 @@ if grep -q "$1" <<<"$peers"; then
     sudo rm -rf wireguard/config/peer_"$1"
     sudo mv -f wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf wireguard/config/wg_confs/"$CLS_INTERN_IFACE".conf.bak
     shift
-    sudo CLS_WG_ONLY=true bash restart.sh ${@@Q}
+    CLS_WG_ONLY=true
+    sudo bash restart.sh ${@@Q}
 fi
 
 popd &>/dev/null || exit

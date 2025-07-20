@@ -35,6 +35,7 @@ CLS_WG_SERVER_IP=""
 CLS_LOCAL_IFACE=""
 CLS_LOCAL_IP=""
 CLS_GATEWAY=""
+CLS_WG_ONLY=${CLS_WG_ONLY:-false}
 
 user_exists() { id "$1" &>/dev/null; }
 

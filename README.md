@@ -37,7 +37,7 @@ A SaaH-HaaS[-Spoke] topology may be useful when you can't forward the WireGuard 
 
 ### Configuration
 
-When completing step 2 below, move everything in `examples/` out to the parent directory first. The files to edit are:
+When configuring, move everything in `examples/` out to the parent directory first. The files to edit are:
 
 - `dhcp/*dhcp*`: optional DHCP server config, if you don't want to use Pi-hole for that
 - `resolv.conf`: optional DNS client config
@@ -65,11 +65,15 @@ Keep in mind that:
 
 Create a node in no more than four steps (probably three or two) (or update in one). The initial reboot, as well as those after upgrading, may take a while as everything is set up, but the subsequent ones will be much faster. For example, the SaaH peer will be created on a HaaS if it doesn't exist. This means that you should set a Hub or HaaS up first, so SaaH and Spoke peer configurations can be generated. Drop those in their `wireguard/config/wg_confs` directories before rebooting. This [AllowedIPs Calculator](https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator) is pretty nifty, if you need it.
 
-0. If you have an existing configuration, you can copy it to `/opt/closure` now.
+#### Installing or Updating
+
+The second step only needs to be done once, if at all.
+
 1. Install or update the package by either:
     - pasting the one-liner or block below;
     - downloading it from [Releases](https://github.com/ipitio/closure/releases); or
     - copying this repo to `/opt/closure`.
+2. If you copied the repo, finish installing by copying `rc.local` to `/etc`.
 
 ```{bash}
 wget -qO- https://ipitio.github.io/closure/i | sudo bash
@@ -87,8 +91,12 @@ sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -qq closure
 ```
 
-2. Edit the files above if you skipped step 0, copy `rc.local` to `/etc` if you copied the repo in the previous step, and reboot.
-3. On a Hub or HaaS, add Spokes you didn't define yet by running `add.sh` as described below.
+#### Configuring
+
+When you're ready for your system to be reconfigured:
+
+1. Copy an existing configuration to `/opt/closure` and/or configure the files as discussed, then reboot.
+2. On a Hub or HaaS, add Spokes you didn't define yet by running `add.sh` as described below.
 
 > [!NOTE]
 > Any arguments passed to `kickstart.sh` are passed to `start.sh`, which can add or edit wifi networks -- useful on a Raspberry Pi Zero (2) W! See the top of `start.sh` for the arguments it takes.

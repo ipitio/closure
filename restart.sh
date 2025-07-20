@@ -30,6 +30,6 @@ for tables in iptables ip6tables; do
 done
 
 eval "cast post-down ${*@Q}"
-# shellcheck disable=SC2086
-sudo CLS_WG_ONLY=${CLS_WG_ONLY:-true} bash start.sh ${@@Q}
+CLS_WG_ONLY=${CLS_WG_ONLY:-true}
+sudo bash start.sh ${@@Q}
 popd || exit
