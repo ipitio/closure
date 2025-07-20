@@ -6,5 +6,5 @@ pushd /opt/closure || exit 1
 ! grep /opt/closure /etc/rc.local &>/dev/null || rm -f /etc/rc.local
 grep -oP '^(Files:)? [^ ]+(?= /opt/closure)' debian/control | grep -oP '(?<= ).+' | sed -r 's/^debian\//DEBIAN\//g' | while read -r file; do [ ! -f "$file" ] || rm -f "$file"; done
 find . -type d -empty -delete
-[ ! -f /usr/share/doc/closure ] || rm -f /usr/share/doc/closure
+[ ! -d /usr/share/doc/closure ] || rm -rf /usr/share/doc/closure
 popd || exit 1
